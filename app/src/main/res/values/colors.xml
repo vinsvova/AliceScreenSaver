@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#2E6E80</color>
+    <color name="icon_background">#2E6E80</color>
+    <color name="card">#1F2E6E80</color>
+
+    <!-- Экран отдыха: спокойная тёмно-синяя гамма -->
+    <color name="rest_background">#1B3445</color>
+    <color name="rest_card">#26475C</color>
+    <color name="rest_text">#F4EFE4</color>
+    <color name="rest_text_soft">#A8C3CF</color>
+    <color name="rest_accent">#F2C14E</color>
+    <color name="rest_error">#FF9B8A</color>
+</resources>

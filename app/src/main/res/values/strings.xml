@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Таймер отдыха</string>
+
+    <string name="section_time">Расписание</string>
+    <string name="play_minutes">Можно пользоваться, минут</string>
+    <string name="rest_minutes">Перерыв, минут</string>
+    <string name="message">Надпись на экране</string>
+    <string name="save_start">Сохранить и запустить</string>
+    <string name="rest_now">Перерыв сейчас (проверка)</string>
+    <string name="stop">Остановить таймер</string>
+
+    <string name="section_permissions">Разрешения</string>
+    <string name="permissions_hint">Чтобы экран отдыха нельзя было просто закрыть, приложению нужны эти разрешения.</string>
+
+    <string name="section_security">Безопасность</string>
+    <string name="change_pin">Сменить PIN родителя</string>
+
+    <string name="rest_hint">Глазкам нужен перерыв.\nВстань, потянись, посмотри в окно.</string>
+    <string name="for_parents">Для родителей</string>
+    <string name="parent_pin_label">PIN родителя</string>
+    <string name="unlock">Разблокировать</string>
+    <string name="cancel">Отмена</string>
+
+    <string name="admin_description">Не даёт удалить «Таймер отдыха» без ведома родителя.</string>
+</resources>

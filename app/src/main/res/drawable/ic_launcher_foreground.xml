@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Иконка приложения: песочные часы с «песком» -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#F4EFE4"
+        android:pathData="M38,32h32v5c0,7 -5,12.5 -11,17c6,4.5 11,10 11,17v5H38v-5c0,-7 5,-12.5 11,-17c-6,-4.5 -11,-10 -11,-17V32z" />
+    <path
+        android:fillColor="#F2C14E"
+        android:pathData="M44,41h20c-1.5,3.5 -5,6.5 -10,9.5C49,47.5 45.5,44.5 44,41zM54,62c4.5,2.5 8.5,6 9.5,10h-19C45.5,68 49.5,64.5 54,62z" />
+    <path
+        android:fillColor="#F4EFE4"
+        android:pathData="M34,28h40v4H34zM34,76h40v4H34z" />
+</vector>
