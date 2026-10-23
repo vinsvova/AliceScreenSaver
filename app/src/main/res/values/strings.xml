@@ -6,6 +6,8 @@
     <string name="play_minutes">Можно пользоваться, минут</string>
     <string name="rest_minutes">Перерыв, минут</string>
     <string name="message">Надпись на экране</string>
+    <string name="block_title">Блокировка по времени</string>
+    <string name="block_hint">В этот интервал планшет закрыт полностью, независимо от таймера. Например, ночью: с 21:00 до 08:00.</string>
     <string name="save_start">Сохранить и запустить</string>
     <string name="rest_now">Перерыв сейчас (проверка)</string>
     <string name="stop">Остановить таймер</string>

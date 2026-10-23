@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.Calendar
 
 /**
  * Настройки и текущее состояние таймера.
@@ -44,6 +45,37 @@ class Prefs(context: Context) {
     var screenOffAt: Long
         get() = sp.getLong(KEY_SCREEN_OFF, 0L)
         set(value) { sp.edit().putLong(KEY_SCREEN_OFF, value).apply() }
+
+    /** Блокировка по расписанию включена. */
+    var blockEnabled: Boolean
+        get() = sp.getBoolean(KEY_BLOCK_ENABLED, false)
+        set(value) { sp.edit().putBoolean(KEY_BLOCK_ENABLED, value).apply() }
+
+    /** Начало блокировки, минуты от полуночи (21:00 = 1260). */
+    var blockStart: Int
+        get() = sp.getInt(KEY_BLOCK_START, 21 * 60)
+        set(value) { sp.edit().putInt(KEY_BLOCK_START, value).apply() }
+
+    /** Конец блокировки, минуты от полуночи (08:00 = 480). */
+    var blockEnd: Int
+        get() = sp.getInt(KEY_BLOCK_END, 8 * 60)
+        set(value) { sp.edit().putInt(KEY_BLOCK_END, value).apply() }
+
+    /** До какого момента родитель временно снял блокировку по расписанию. */
+    var blockPauseUntil: Long
+        get() = sp.getLong(KEY_BLOCK_PAUSE, 0L)
+        set(value) { sp.edit().putLong(KEY_BLOCK_PAUSE, value).apply() }
+
+    /** Попадает ли текущий момент в интервал блокировки (учитывая переход через полночь). */
+    fun isBlockedNow(now: Long = System.currentTimeMillis()): Boolean {
+        if (!blockEnabled) return false
+        val start = blockStart
+        val end = blockEnd
+        if (start == end) return false
+        if (now < blockPauseUntil) return false
+        val m = minutesOfDay(now)
+        return if (start < end) m in start until end else m >= start || m < end
+    }
 
     fun hasPin(): Boolean = sp.contains(KEY_PIN_HASH)
 
@@ -94,6 +126,10 @@ class Prefs(context: Context) {
         private const val KEY_PLAYED = "played_seconds"
         private const val KEY_REST_END = "rest_ends_at"
         private const val KEY_SCREEN_OFF = "screen_off_at"
+        private const val KEY_BLOCK_ENABLED = "block_enabled"
+        private const val KEY_BLOCK_START = "block_start"
+        private const val KEY_BLOCK_END = "block_end"
+        private const val KEY_BLOCK_PAUSE = "block_pause_until"
         private const val KEY_PIN_SALT = "pin_salt"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_PIN_FAILS = "pin_fails"
@@ -108,6 +144,14 @@ fun formatDuration(ms: Long): String {
     val total = (ms + 999) / 1000
     return "%d:%02d".format(total / 60, total % 60)
 }
+
+fun minutesOfDay(now: Long): Int {
+    val c = Calendar.getInstance().apply { timeInMillis = now }
+    return c.get(Calendar.HOUR_OF_DAY) * 60 + c.get(Calendar.MINUTE)
+}
+
+/** 1260 → "21:00" */
+fun formatClock(minutesOfDay: Int): String = "%02d:%02d".format(minutesOfDay / 60, minutesOfDay % 60)
 
 /** 125000 мс → "3 мин" (округление вверх) */
 fun formatMinutes(ms: Long): String = "${(ms + 59_999) / 60_000} мин"

@@ -139,6 +139,16 @@ class RestTimerService : Service() {
         lastTick = nowElapsed
 
         val now = System.currentTimeMillis()
+
+        // Блокировка по расписанию важнее всего остального.
+        if (prefs.isBlockedNow(now)) {
+            val until = formatClock(prefs.blockEnd)
+            showOverlay()
+            overlay?.setBlockMode(until)
+            notify("Планшет заблокирован до $until")
+            return
+        }
+
         val restEnd = prefs.restEndsAt
         if (restEnd > 0) {
             if (now >= restEnd) {
@@ -146,6 +156,7 @@ class RestTimerService : Service() {
             } else {
                 val left = restEnd - now
                 showOverlay()
+                overlay?.setBlockMode(null)
                 overlay?.updateCountdown(left)
                 notify("Перерыв, осталось ${formatMinutes(left)}")
                 return
@@ -197,11 +208,23 @@ class RestTimerService : Service() {
             notify("Нет разрешения «Поверх других окон», экран отдыха не показан")
             return
         }
-        val current = overlay ?: LockOverlay(this, prefs) {
-            endRest()
-            Toast.makeText(this, "Разблокировано родителем", Toast.LENGTH_SHORT).show()
-        }.also { overlay = it }
+        val current = overlay ?: LockOverlay(this, prefs) { onParentUnlock() }.also { overlay = it }
         current.show(prefs.message)
+    }
+
+    private fun onParentUnlock() {
+        if (prefs.isBlockedNow()) {
+            // Родитель снимает блокировку по расписанию на время, потом она вернётся сама.
+            prefs.blockPauseUntil = System.currentTimeMillis() + PARENT_PAUSE_MINUTES * 60_000L
+            Toast.makeText(
+                this,
+                "Блокировка снята на $PARENT_PAUSE_MINUTES минут",
+                Toast.LENGTH_LONG
+            ).show()
+        } else {
+            Toast.makeText(this, "Разблокировано родителем", Toast.LENGTH_SHORT).show()
+        }
+        endRest()
     }
 
     private fun hideOverlay() {
@@ -248,6 +271,7 @@ class RestTimerService : Service() {
 
         private const val CHANNEL_ID = "rest_timer"
         private const val NOTIFICATION_ID = 1
+        private const val PARENT_PAUSE_MINUTES = 15
 
         fun send(context: Context, action: String) {
             val intent = Intent(context, RestTimerService::class.java).setAction(action)

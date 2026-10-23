@@ -30,6 +30,8 @@ class LockOverlay(
     private var root: FrameLayout? = null
     private var messageView: TextView? = null
     private var countdownView: TextView? = null
+    private var hintView: TextView? = null
+    private var blockUntil: String? = null
     private var parentPanel: View? = null
     private var parentButton: View? = null
     private var pinEdit: EditText? = null
@@ -54,6 +56,8 @@ class LockOverlay(
 
         messageView = container.findViewById<TextView>(R.id.lock_message).apply { text = message }
         countdownView = container.findViewById(R.id.lock_countdown)
+        hintView = container.findViewById(R.id.lock_hint)
+        blockUntil = null
         parentPanel = container.findViewById(R.id.parent_panel)
         parentButton = container.findViewById(R.id.parent_button)
         pinEdit = container.findViewById(R.id.parent_pin)
@@ -98,10 +102,26 @@ class LockOverlay(
             // окно уже удалено
         }
         root = null
+        blockUntil = null
     }
 
     fun setMessage(message: String) {
         messageView?.text = message
+    }
+
+    /**
+     * until != null — блокировка по расписанию до указанного времени,
+     * null — обычный перерыв с обратным отсчётом.
+     */
+    fun setBlockMode(until: String?) {
+        if (until == blockUntil) return
+        blockUntil = until
+        if (until != null) {
+            hintView?.text = "Сейчас планшет недоступен.\nПоиграем в другой раз!"
+            countdownView?.text = "Откроется в $until"
+        } else {
+            hintView?.setText(R.string.rest_hint)
+        }
     }
 
     fun updateCountdown(leftMs: Long) {

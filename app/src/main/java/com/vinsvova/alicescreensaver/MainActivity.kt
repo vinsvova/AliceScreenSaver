@@ -23,6 +23,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.timepicker.MaterialTimePicker
+import com.google.android.material.timepicker.TimeFormat
 
 /**
  * Экран настроек для родителя. Открывается только после ввода PIN.
@@ -36,6 +39,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playEdit: EditText
     private lateinit var restEdit: EditText
     private lateinit var messageEdit: EditText
+    private lateinit var blockSwitch: MaterialSwitch
+    private lateinit var blockTimes: View
+    private lateinit var blockStartButton: Button
+    private lateinit var blockEndButton: Button
+    private var blockStartSel = 21 * 60
+    private var blockEndSel = 8 * 60
     private lateinit var overlayButton: Button
     private lateinit var notificationsButton: Button
     private lateinit var batteryButton: Button
@@ -65,6 +74,17 @@ class MainActivity : AppCompatActivity() {
         playEdit = findViewById(R.id.play_minutes)
         restEdit = findViewById(R.id.rest_minutes)
         messageEdit = findViewById(R.id.message)
+        blockSwitch = findViewById(R.id.block_enabled)
+        blockTimes = findViewById(R.id.block_times)
+        blockStartButton = findViewById(R.id.block_start)
+        blockEndButton = findViewById(R.id.block_end)
+        blockSwitch.setOnCheckedChangeListener { _, checked -> blockTimes.isEnabled = checked; updateBlockButtons() }
+        blockStartButton.setOnClickListener {
+            pickTime("Начало блокировки", blockStartSel) { blockStartSel = it; updateBlockButtons() }
+        }
+        blockEndButton.setOnClickListener {
+            pickTime("Конец блокировки", blockEndSel) { blockEndSel = it; updateBlockButtons() }
+        }
         overlayButton = findViewById(R.id.perm_overlay)
         notificationsButton = findViewById(R.id.perm_notifications)
         batteryButton = findViewById(R.id.perm_battery)
@@ -212,6 +232,10 @@ class MainActivity : AppCompatActivity() {
         playEdit.setText(prefs.playMinutes.toString())
         restEdit.setText(prefs.restMinutes.toString())
         messageEdit.setText(prefs.message)
+        blockStartSel = prefs.blockStart
+        blockEndSel = prefs.blockEnd
+        blockSwitch.isChecked = prefs.blockEnabled
+        updateBlockButtons()
         refreshPermissions()
         handler.removeCallbacks(refresher)
         handler.post(refresher)
@@ -220,14 +244,43 @@ class MainActivity : AppCompatActivity() {
     private fun refreshStatus() {
         val now = System.currentTimeMillis()
         val restEnd = prefs.restEndsAt
-        status.text = when {
+        val main = when {
             !prefs.enabled -> "⏸ Таймер выключен"
+            prefs.isBlockedNow(now) -> "🌙 Планшет заблокирован до ${formatClock(prefs.blockEnd)}"
             restEnd > now -> "🌿 Идёт перерыв, осталось ${formatDuration(restEnd - now)}"
             else -> {
                 val left = (prefs.playMinutes * 60_000L - prefs.playedSeconds * 1000).coerceAtLeast(0)
                 "▶ Таймер работает. До перерыва ${formatDuration(left)}"
             }
         }
+        val pause = prefs.blockPauseUntil
+        status.text = when {
+            prefs.enabled && prefs.blockEnabled && pause > now && prefs.isBlockedNow(pause) ->
+                "$main\nБлокировка снята родителем, вернётся через ${formatDuration(pause - now)}"
+            prefs.enabled && prefs.blockEnabled ->
+                "$main\nБлокировка по времени: ${formatClock(prefs.blockStart)}–${formatClock(prefs.blockEnd)}"
+            else -> main
+        }
+    }
+
+    private fun updateBlockButtons() {
+        blockStartButton.text = "С ${formatClock(blockStartSel)}"
+        blockEndButton.text = "До ${formatClock(blockEndSel)}"
+        val on = blockSwitch.isChecked
+        blockStartButton.isEnabled = on
+        blockEndButton.isEnabled = on
+    }
+
+    private fun pickTime(title: String, current: Int, onPicked: (Int) -> Unit) {
+        val picker = MaterialTimePicker.Builder()
+            .setTimeFormat(TimeFormat.CLOCK_24H)
+            .setHour(current / 60)
+            .setMinute(current % 60)
+            .setTitleText(title)
+            .setInputMode(MaterialTimePicker.INPUT_MODE_CLOCK)
+            .build()
+        picker.addOnPositiveButtonClickListener { onPicked(picker.hour * 60 + picker.minute) }
+        picker.show(supportFragmentManager, "time_picker")
     }
 
     private fun saveAndStart() {
@@ -241,8 +294,18 @@ class MainActivity : AppCompatActivity() {
             restEdit.error = "От 1 до 240 минут"
             return
         }
+        if (blockSwitch.isChecked && blockStartSel == blockEndSel) {
+            Toast.makeText(this, "Начало и конец блокировки не должны совпадать", Toast.LENGTH_LONG).show()
+            return
+        }
         prefs.playMinutes = play
         prefs.restMinutes = rest
+        val blockChanged = prefs.blockEnabled != blockSwitch.isChecked ||
+            prefs.blockStart != blockStartSel || prefs.blockEnd != blockEndSel
+        prefs.blockEnabled = blockSwitch.isChecked
+        prefs.blockStart = blockStartSel
+        prefs.blockEnd = blockEndSel
+        if (blockChanged) prefs.blockPauseUntil = 0L
         prefs.message = messageEdit.text.toString().trim().ifEmpty { Prefs.DEFAULT_MESSAGE }
 
         if (!Settings.canDrawOverlays(this)) {
