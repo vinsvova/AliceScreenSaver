@@ -77,6 +77,47 @@ class Prefs(context: Context) {
         return if (start < end) m in start until end else m >= start || m < end
     }
 
+    // ---------- Примеры по математике ----------
+
+    var mathEnabled: Boolean
+        get() = sp.getBoolean(KEY_MATH_ENABLED, true)
+        set(value) { sp.edit().putBoolean(KEY_MATH_ENABLED, value).apply() }
+
+    /** Через сколько минут пользования планшетом показывать примеры. */
+    var mathIntervalMinutes: Int
+        get() = sp.getInt(KEY_MATH_INTERVAL, 15)
+        set(value) { sp.edit().putInt(KEY_MATH_INTERVAL, value).apply() }
+
+    /** Сколько секунд даётся на ответ. */
+    var mathAnswerSeconds: Int
+        get() = sp.getInt(KEY_MATH_SECONDS, 60)
+        set(value) { sp.edit().putInt(KEY_MATH_SECONDS, value).apply() }
+
+    /** Сколько секунд активности прошло с последних примеров. */
+    var mathPlayedSeconds: Long
+        get() = sp.getLong(KEY_MATH_PLAYED, 0L)
+        set(value) { sp.edit().putLong(KEY_MATH_PLAYED, value).apply() }
+
+    /** Примеры, которые сейчас на экране (пусто — экрана с примерами нет). */
+    var activeQuiz: String
+        get() = sp.getString(KEY_QUIZ_ACTIVE, "") ?: ""
+        set(value) { sp.edit().putString(KEY_QUIZ_ACTIVE, value).apply() }
+
+    /** Текущий экран — повтор ошибок. */
+    var activeQuizIsRetry: Boolean
+        get() = sp.getBoolean(KEY_QUIZ_ACTIVE_RETRY, false)
+        set(value) { sp.edit().putBoolean(KEY_QUIZ_ACTIVE_RETRY, value).apply() }
+
+    /** Примеры с ошибками, которые нужно повторить. */
+    var quizRetry: String
+        get() = sp.getString(KEY_QUIZ_RETRY, "") ?: ""
+        set(value) { sp.edit().putString(KEY_QUIZ_RETRY, value).apply() }
+
+    /** Когда показать повтор ошибок (System.currentTimeMillis), 0 — не нужно. */
+    var quizRetryAt: Long
+        get() = sp.getLong(KEY_QUIZ_RETRY_AT, 0L)
+        set(value) { sp.edit().putLong(KEY_QUIZ_RETRY_AT, value).apply() }
+
     fun hasPin(): Boolean = sp.contains(KEY_PIN_HASH)
 
     fun setPin(pin: String) {
@@ -130,6 +171,14 @@ class Prefs(context: Context) {
         private const val KEY_BLOCK_START = "block_start"
         private const val KEY_BLOCK_END = "block_end"
         private const val KEY_BLOCK_PAUSE = "block_pause_until"
+        private const val KEY_MATH_ENABLED = "math_enabled"
+        private const val KEY_MATH_INTERVAL = "math_interval"
+        private const val KEY_MATH_SECONDS = "math_seconds"
+        private const val KEY_MATH_PLAYED = "math_played_seconds"
+        private const val KEY_QUIZ_ACTIVE = "quiz_active"
+        private const val KEY_QUIZ_ACTIVE_RETRY = "quiz_active_retry"
+        private const val KEY_QUIZ_RETRY = "quiz_retry"
+        private const val KEY_QUIZ_RETRY_AT = "quiz_retry_at"
         private const val KEY_PIN_SALT = "pin_salt"
         private const val KEY_PIN_HASH = "pin_hash"
         private const val KEY_PIN_FAILS = "pin_fails"

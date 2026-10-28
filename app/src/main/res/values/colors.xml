@@ -11,4 +11,7 @@
     <color name="rest_text_soft">#A8C3CF</color>
     <color name="rest_accent">#F2C14E</color>
     <color name="rest_error">#FF9B8A</color>
+    <color name="quiz_ok">#7BD389</color>
+    <color name="quiz_ok_fill">#2B5A48</color>
+    <color name="quiz_key">#2F5670</color>
 </resources>

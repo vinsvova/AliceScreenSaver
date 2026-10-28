@@ -23,6 +23,13 @@
     <string name="parent_pin_label">PIN родителя</string>
     <string name="unlock">Разблокировать</string>
     <string name="cancel">Отмена</string>
+    <string name="skip_quiz">Пропустить</string>
+
+    <string name="math_title">Примеры по математике</string>
+    <string name="math_hint">Каждые N минут пользования на экране появятся два примера на умножение и деление. Пока ребёнок не решит их верно, планшет не откроется. Примеры с ошибками повторятся через 3 минуты.</string>
+    <string name="math_interval">Каждые, минут</string>
+    <string name="math_seconds">На ответ, секунд</string>
+    <string name="quiz_now">Примеры сейчас (проверка)</string>
 
     <string name="admin_description">Не даёт удалить «Таймер отдыха» без ведома родителя.</string>
 </resources>

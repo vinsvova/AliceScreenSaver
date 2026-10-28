@@ -45,6 +45,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var blockEndButton: Button
     private var blockStartSel = 21 * 60
     private var blockEndSel = 8 * 60
+    private lateinit var mathSwitch: MaterialSwitch
+    private lateinit var mathIntervalEdit: EditText
+    private lateinit var mathSecondsEdit: EditText
     private lateinit var overlayButton: Button
     private lateinit var notificationsButton: Button
     private lateinit var batteryButton: Button
@@ -85,6 +88,11 @@ class MainActivity : AppCompatActivity() {
         blockEndButton.setOnClickListener {
             pickTime("Конец блокировки", blockEndSel) { blockEndSel = it; updateBlockButtons() }
         }
+        mathSwitch = findViewById(R.id.math_enabled)
+        mathIntervalEdit = findViewById(R.id.math_interval)
+        mathSecondsEdit = findViewById(R.id.math_seconds)
+        mathSwitch.setOnCheckedChangeListener { _, checked -> updateMathFields(checked) }
+        findViewById<Button>(R.id.quiz_now).setOnClickListener { quizNow() }
         overlayButton = findViewById(R.id.perm_overlay)
         notificationsButton = findViewById(R.id.perm_notifications)
         batteryButton = findViewById(R.id.perm_battery)
@@ -236,6 +244,10 @@ class MainActivity : AppCompatActivity() {
         blockEndSel = prefs.blockEnd
         blockSwitch.isChecked = prefs.blockEnabled
         updateBlockButtons()
+        mathSwitch.isChecked = prefs.mathEnabled
+        mathIntervalEdit.setText(prefs.mathIntervalMinutes.toString())
+        mathSecondsEdit.setText(prefs.mathAnswerSeconds.toString())
+        updateMathFields(prefs.mathEnabled)
         refreshPermissions()
         handler.removeCallbacks(refresher)
         handler.post(refresher)
@@ -248,19 +260,46 @@ class MainActivity : AppCompatActivity() {
             !prefs.enabled -> "⏸ Таймер выключен"
             prefs.isBlockedNow(now) -> "🌙 Планшет заблокирован до ${formatClock(prefs.blockEnd)}"
             restEnd > now -> "🌿 Идёт перерыв, осталось ${formatDuration(restEnd - now)}"
+            prefs.activeQuiz.isNotEmpty() -> "✏️ Ребёнок решает примеры"
             else -> {
                 val left = (prefs.playMinutes * 60_000L - prefs.playedSeconds * 1000).coerceAtLeast(0)
                 "▶ Таймер работает. До перерыва ${formatDuration(left)}"
             }
         }
         val pause = prefs.blockPauseUntil
-        status.text = when {
+        status.text = withMathLine(when {
             prefs.enabled && prefs.blockEnabled && pause > now && prefs.isBlockedNow(pause) ->
                 "$main\nБлокировка снята родителем, вернётся через ${formatDuration(pause - now)}"
             prefs.enabled && prefs.blockEnabled ->
                 "$main\nБлокировка по времени: ${formatClock(prefs.blockStart)}–${formatClock(prefs.blockEnd)}"
             else -> main
+        })
+    }
+
+    private fun withMathLine(text: String): String {
+        if (!prefs.enabled || !prefs.mathEnabled || prefs.activeQuiz.isNotEmpty()) return text
+        val now = System.currentTimeMillis()
+        val retryAt = prefs.quizRetryAt
+        val line = if (prefs.quizRetry.isNotEmpty() && retryAt > 0) {
+            "Повтор ошибок через ${formatDuration((retryAt - now).coerceAtLeast(0))}"
+        } else {
+            val left = (prefs.mathIntervalMinutes * 60_000L - prefs.mathPlayedSeconds * 1000).coerceAtLeast(0)
+            "Примеры через ${formatDuration(left)}"
         }
+        return "$text\n$line"
+    }
+
+    private fun updateMathFields(on: Boolean) {
+        findViewById<View>(R.id.math_interval_layout).isEnabled = on
+        findViewById<View>(R.id.math_seconds_layout).isEnabled = on
+    }
+
+    private fun quizNow() {
+        if (!prefs.enabled || !prefs.mathEnabled) {
+            Toast.makeText(this, "Включите примеры и нажмите «Сохранить и запустить»", Toast.LENGTH_LONG).show()
+            return
+        }
+        RestTimerService.send(this, RestTimerService.ACTION_QUIZ_NOW)
     }
 
     private fun updateBlockButtons() {
@@ -294,6 +333,18 @@ class MainActivity : AppCompatActivity() {
             restEdit.error = "От 1 до 240 минут"
             return
         }
+        val mathInterval = mathIntervalEdit.text.toString().toIntOrNull()
+        val mathSeconds = mathSecondsEdit.text.toString().toIntOrNull()
+        if (mathSwitch.isChecked) {
+            if (mathInterval == null || mathInterval !in 1..240) {
+                mathIntervalEdit.error = "От 1 до 240 минут"
+                return
+            }
+            if (mathSeconds == null || mathSeconds !in 10..600) {
+                mathSecondsEdit.error = "От 10 до 600 секунд"
+                return
+            }
+        }
         if (blockSwitch.isChecked && blockStartSel == blockEndSel) {
             Toast.makeText(this, "Начало и конец блокировки не должны совпадать", Toast.LENGTH_LONG).show()
             return
@@ -306,6 +357,15 @@ class MainActivity : AppCompatActivity() {
         prefs.blockStart = blockStartSel
         prefs.blockEnd = blockEndSel
         if (blockChanged) prefs.blockPauseUntil = 0L
+        val intervalChanged = mathInterval != null && mathInterval != prefs.mathIntervalMinutes
+        prefs.mathEnabled = mathSwitch.isChecked
+        if (mathInterval != null && mathInterval in 1..240) prefs.mathIntervalMinutes = mathInterval
+        if (mathSeconds != null && mathSeconds in 10..600) prefs.mathAnswerSeconds = mathSeconds
+        if (intervalChanged || !prefs.mathEnabled) prefs.mathPlayedSeconds = 0L
+        if (!prefs.mathEnabled) {
+            prefs.quizRetry = ""
+            prefs.quizRetryAt = 0L
+        }
         prefs.message = messageEdit.text.toString().trim().ifEmpty { Prefs.DEFAULT_MESSAGE }
 
         if (!Settings.canDrawOverlays(this)) {

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Рыжий котик (ждёт) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- уши -->
+    <path android:fillColor="#F2A65A" android:pathData="M42,92 L52,26 L98,62 Z" />
+    <path android:fillColor="#F2A65A" android:pathData="M158,92 L148,26 L102,62 Z" />
+    <path android:fillColor="#F7C6C7" android:pathData="M54,74 L59,42 L82,62 Z" />
+    <path android:fillColor="#F7C6C7" android:pathData="M146,74 L141,42 L118,62 Z" />
+    <!-- голова -->
+    <path android:fillColor="#F2A65A" android:pathData="M28,112 a72,60 0 1,0 144,0 a72,60 0 1,0 -144,0 Z" />
+    <!-- полоски -->
+    <path android:fillColor="#D9843B" android:pathData="M93,53 h14 l-3,18 h-8 Z" />
+    <path android:fillColor="#D9843B" android:pathData="M74,58 l9,-2 l1,13 l-7,1 Z" />
+    <path android:fillColor="#D9843B" android:pathData="M126,58 l-9,-2 l-1,13 l7,1 Z" />
+    <!-- мордочка -->
+    <path android:fillColor="#FCE8D5" android:pathData="M68,138 a32,22 0 1,0 64,0 a32,22 0 1,0 -64,0 Z" />
+    <!-- усы -->
+    <path android:strokeColor="#8D6E63" android:strokeWidth="2.5" android:strokeLineCap="round"
+        android:pathData="M64,132 L22,124 M64,140 L22,144 M136,132 L178,124 M136,140 L178,144" />
+    <!-- глаза -->
+    <path android:fillColor="#3E2723" android:pathData="M64,106 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 Z" />
+    <path android:fillColor="#3E2723" android:pathData="M114,106 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M74,102 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M124,102 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0 Z" />
+    <!-- румянец -->
+    <path android:fillColor="#99F48FB1" android:pathData="M50,130 a10,6 0 1,0 20,0 a10,6 0 1,0 -20,0 Z" />
+    <path android:fillColor="#99F48FB1" android:pathData="M130,130 a10,6 0 1,0 20,0 a10,6 0 1,0 -20,0 Z" />
+    <!-- нос -->
+    <path android:fillColor="#E57373" android:pathData="M92,124 h16 l-8,9 Z" />
+    <!-- рот -->
+    <path android:strokeColor="#5D4037" android:strokeWidth="3" android:strokeLineCap="round"
+        android:pathData="M100,133 q-7,9 -15,4 M100,133 q7,9 15,4" />
+</vector>
