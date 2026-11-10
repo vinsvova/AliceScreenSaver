@@ -34,6 +34,16 @@
     <string name="math_kinds">Виды заданий</string>
     <string name="cat_plain">Примеры: 7 × 8, 56 : 7</string>
     <string name="cat_words">Таблица умножения словами: «Увеличь 7 в 4 раза»</string>
+    <string name="cat_extra">Внетабличное умножение и деление: «13 × 7», «Сумму 33 и 55 раздели на 8»</string>
+    <string name="cat_addsub">Сложение и вычитание в пределах 100</string>
+    <string name="math_level">Сложность</string>
+    <string name="level_easy">Лёгкая</string>
+    <string name="level_medium">Средняя</string>
+    <string name="level_hard">Сложная</string>
+    <string name="teacher_title">Голос учительницы</string>
+    <string name="teacher_enabled">Строгая учительница: замечания при ошибках и похвала</string>
+    <string name="teacher_preview">▶ Послушать</string>
+    <string name="teacher_next_voice">Сменить голос</string>
     <string name="cat_steps">Действия в два шага: «Сумму 31 и 17 раздели на 8»</string>
     <string name="cat_compare">Сравнение величин: м, дм, см (знаки &gt;, &lt;, =)</string>
     <string name="cat_problems">Текстовые задачи</string>

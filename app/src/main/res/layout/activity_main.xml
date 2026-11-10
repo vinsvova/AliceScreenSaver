@@ -198,6 +198,48 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            android:text="@string/math_level"
+            android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+        <RadioGroup
+            android:id="@+id/math_level"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/level_easy"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/level_easy" />
+
+            <RadioButton
+                android:id="@+id/level_medium"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/level_medium" />
+
+            <RadioButton
+                android:id="@+id/level_hard"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/level_hard" />
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/level_hint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.75"
+            android:textAppearance="?attr/textAppearanceBodySmall" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
             android:text="@string/math_kinds"
             android:textAppearance="?attr/textAppearanceTitleSmall" />
 
@@ -212,6 +254,18 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/cat_words" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cat_extra"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_extra" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cat_addsub"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_addsub" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/cat_steps"
@@ -280,6 +334,50 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/sound_preview" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/teacher_title"
+            android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/teacher_enabled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/teacher_enabled" />
+
+        <TextView
+            android:id="@+id/teacher_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.75"
+            android:textAppearance="?attr/textAppearanceBodySmall" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/teacher_preview"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:text="@string/teacher_preview" />
+
+            <Button
+                android:id="@+id/teacher_next_voice"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="@string/teacher_next_voice" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/save_start"

@@ -13,9 +13,10 @@ object WrongFeedback {
 
     private var player: MediaPlayer? = null
 
-    fun play(context: Context, prefs: Prefs) {
+    /** after — вызывается, когда звук доиграл (или сразу, если звука нет). */
+    fun play(context: Context, prefs: Prefs, after: (() -> Unit)? = null) {
         if (prefs.wrongVibrate) vibrate(context)
-        playSound(context, prefs.wrongSound)
+        playSound(context, prefs.wrongSound, after)
     }
 
     fun hasVibrator(context: Context): Boolean = vibrator(context)?.hasVibrator() == true
@@ -30,12 +31,15 @@ object WrongFeedback {
         }
     }
 
-    fun playSound(context: Context, sound: String) {
+    fun playSound(context: Context, sound: String, after: (() -> Unit)? = null) {
         val res = when (sound) {
             Prefs.SOUND_GROWL -> R.raw.wrong_growl
             Prefs.SOUND_HISS -> R.raw.wrong_hiss
             Prefs.SOUND_WILD -> R.raw.wrong_wild
-            else -> return
+            else -> {
+                after?.invoke()
+                return
+            }
         }
         stop()
         try {
@@ -43,15 +47,20 @@ object WrongFeedback {
                 .setUsage(AudioAttributes.USAGE_GAME)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
-            val mp = MediaPlayer.create(context.applicationContext, res, attrs, 0) ?: return
+            val mp = MediaPlayer.create(context.applicationContext, res, attrs, 0)
+            if (mp == null) {
+                after?.invoke()
+                return
+            }
             mp.setOnCompletionListener {
                 it.release()
                 if (player === it) player = null
+                after?.invoke()
             }
             player = mp
             mp.start()
         } catch (e: Exception) {
-            // звук недоступен
+            after?.invoke()
         }
     }
 

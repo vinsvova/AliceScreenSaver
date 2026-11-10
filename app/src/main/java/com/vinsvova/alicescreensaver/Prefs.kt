@@ -113,6 +113,21 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_START_PENDING, false)
         set(value) { sp.edit().putBoolean(KEY_START_PENDING, value).apply() }
 
+    /** Сложность заданий: 1 — лёгкая, 2 — средняя, 3 — сложная. */
+    var mathLevel: Int
+        get() = sp.getInt(KEY_MATH_LEVEL, TaskGenerator.MEDIUM)
+        set(value) { sp.edit().putInt(KEY_MATH_LEVEL, value).apply() }
+
+    /** Голос учительницы: замечания при ошибках и похвала. */
+    var teacherEnabled: Boolean
+        get() = sp.getBoolean(KEY_TEACHER, true)
+        set(value) { sp.edit().putBoolean(KEY_TEACHER, value).apply() }
+
+    /** Выбранный голос синтезатора речи (пусто — голос по умолчанию). */
+    var teacherVoice: String
+        get() = sp.getString(KEY_TEACHER_VOICE, "") ?: ""
+        set(value) { sp.edit().putString(KEY_TEACHER_VOICE, value).apply() }
+
     /** Вибрация при неправильном ответе. */
     var wrongVibrate: Boolean
         get() = sp.getBoolean(KEY_WRONG_VIBRATE, true)
@@ -211,6 +226,9 @@ class Prefs(context: Context) {
         private const val KEY_START_PENDING = "start_quiz_pending"
         private const val KEY_WRONG_VIBRATE = "wrong_vibrate"
         private const val KEY_WRONG_SOUND = "wrong_sound"
+        private const val KEY_MATH_LEVEL = "math_level"
+        private const val KEY_TEACHER = "teacher_enabled"
+        private const val KEY_TEACHER_VOICE = "teacher_voice"
 
         const val SOUND_NONE = "none"
         const val SOUND_GROWL = "growl"

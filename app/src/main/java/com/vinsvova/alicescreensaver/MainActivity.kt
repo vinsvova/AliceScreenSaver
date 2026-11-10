@@ -59,11 +59,24 @@ class MainActivity : AppCompatActivity() {
         mapOf(
             TaskGenerator.CAT_PLAIN to findViewById<CheckBox>(R.id.cat_plain),
             TaskGenerator.CAT_WORDS to findViewById<CheckBox>(R.id.cat_words),
+            TaskGenerator.CAT_EXTRA to findViewById<CheckBox>(R.id.cat_extra),
+            TaskGenerator.CAT_ADDSUB to findViewById<CheckBox>(R.id.cat_addsub),
             TaskGenerator.CAT_STEPS to findViewById<CheckBox>(R.id.cat_steps),
             TaskGenerator.CAT_COMPARE to findViewById<CheckBox>(R.id.cat_compare),
             TaskGenerator.CAT_PROBLEMS to findViewById<CheckBox>(R.id.cat_problems)
         )
     }
+
+    private val levelButtons = mapOf(
+        TaskGenerator.EASY to R.id.level_easy,
+        TaskGenerator.MEDIUM to R.id.level_medium,
+        TaskGenerator.HARD to R.id.level_hard
+    )
+    private lateinit var levelGroup: RadioGroup
+    private lateinit var levelHint: TextView
+    private lateinit var teacherSwitch: MaterialSwitch
+    private lateinit var teacherStatus: TextView
+    private var teacherVoiceSel = ""
 
     private val soundButtons = mapOf(
         Prefs.SOUND_NONE to R.id.sound_none,
@@ -120,6 +133,32 @@ class MainActivity : AppCompatActivity() {
         soundGroup = findViewById(R.id.wrong_sound)
         mathSwitch.setOnCheckedChangeListener { _, checked -> updateMathFields(checked) }
         findViewById<Button>(R.id.quiz_now).setOnClickListener { quizNow() }
+        levelGroup = findViewById(R.id.math_level)
+        levelHint = findViewById(R.id.level_hint)
+        levelGroup.setOnCheckedChangeListener { _, _ -> updateLevelHint() }
+        teacherSwitch = findViewById(R.id.teacher_enabled)
+        teacherStatus = findViewById(R.id.teacher_status)
+        Teacher.init(this, prefs.teacherVoice)
+        findViewById<Button>(R.id.teacher_preview).setOnClickListener {
+            if (!teacherReady()) return@setOnClickListener
+            val phrase = if ((0..1).random() == 0) Teacher.nextError() else Teacher.nextPraise()
+            Teacher.say(phrase)
+        }
+        findViewById<Button>(R.id.teacher_next_voice).setOnClickListener {
+            if (!teacherReady()) return@setOnClickListener
+            val voices = Teacher.russianVoices()
+            if (voices.size < 2) {
+                Toast.makeText(this, "Других русских голосов на планшете нет", Toast.LENGTH_SHORT).show()
+                Teacher.say("Ставлю тебе пять!")
+                return@setOnClickListener
+            }
+            val cur = voices.indexOfFirst { it.name == (teacherVoiceSel.ifEmpty { Teacher.currentVoiceName() }) }
+            val next = voices[(cur + 1).mod(voices.size)]
+            teacherVoiceSel = next.name
+            Teacher.setVoice(next.name)
+            Teacher.say("Будь внимательной!")
+            updateTeacherStatus()
+        }
         findViewById<Button>(R.id.sound_preview).setOnClickListener {
             val sound = selectedSound()
             if (sound == Prefs.SOUND_NONE) {
@@ -163,6 +202,7 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         parentVisible = false
         WrongFeedback.stop()
+        Teacher.stop()
     }
 
     override fun onStop() {
@@ -298,6 +338,11 @@ class MainActivity : AppCompatActivity() {
         categoryBoxes.forEach { (key, box) -> box.isChecked = key in cats }
         wrongVibrateSwitch.isChecked = prefs.wrongVibrate
         soundGroup.check(soundButtons[prefs.wrongSound] ?: R.id.sound_hiss)
+        levelGroup.check(levelButtons[prefs.mathLevel] ?: R.id.level_medium)
+        updateLevelHint()
+        teacherSwitch.isChecked = prefs.teacherEnabled
+        teacherVoiceSel = prefs.teacherVoice
+        updateTeacherStatus()
         updateMathFields(prefs.mathEnabled)
         parentVisible = true
         refreshPermissions()
@@ -306,6 +351,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshStatus() {
+        if (::teacherStatus.isInitialized && !Teacher.russianOk) updateTeacherStatus()
         val now = System.currentTimeMillis()
         val restEnd = prefs.restEndsAt
         val main = when {
@@ -350,6 +396,43 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.math_count_layout).isEnabled = on
         mathAtStartSwitch.isEnabled = on
         categoryBoxes.values.forEach { it.isEnabled = on }
+        for (i in 0 until levelGroup.childCount) levelGroup.getChildAt(i).isEnabled = on
+    }
+
+    private fun selectedLevel(): Int =
+        levelButtons.entries.firstOrNull { it.value == levelGroup.checkedRadioButtonId }?.key ?: TaskGenerator.MEDIUM
+
+    private fun updateLevelHint() {
+        levelHint.text = when (selectedLevel()) {
+            TaskGenerator.EASY -> "Таблица от 2 до 5, сложение без перехода через десяток, задачи в одно действие."
+            TaskGenerator.HARD -> "Таблица 6–9, пропущенные числа (□ × 7 = 56), переход через десяток, задачи в два действия."
+            else -> "Вся таблица от 2 до 9, переход через десяток, обычные задания из диктантов."
+        }
+    }
+
+    private fun teacherReady(): Boolean {
+        if (Teacher.russianOk) return true
+        Toast.makeText(
+            this,
+            if (Teacher.failed) "Нет русского голоса. Установите «Синтезатор речи Google»." else "Голос ещё загружается, попробуйте через секунду",
+            Toast.LENGTH_LONG
+        ).show()
+        return false
+    }
+
+    private fun updateTeacherStatus() {
+        val voices = Teacher.russianVoices()
+        teacherStatus.text = when {
+            Teacher.failed ->
+                "На планшете нет русского голоса. Установите «Синтезатор речи Google» из Play Маркета и скачайте в нём русский язык."
+            !Teacher.russianOk -> "Голос загружается…"
+            voices.isEmpty() -> "Голос: по умолчанию"
+            else -> {
+                val name = teacherVoiceSel.ifEmpty { Teacher.currentVoiceName() }
+                val i = voices.indexOfFirst { it.name == name }
+                if (i >= 0) "Голос ${i + 1} из ${voices.size}" else "Голос: по умолчанию (всего голосов: ${voices.size})"
+            }
+        }
     }
 
     private fun selectedSound(): String =
@@ -441,6 +524,9 @@ class MainActivity : AppCompatActivity() {
         prefs.mathAtStart = mathAtStartSwitch.isChecked
         prefs.wrongVibrate = wrongVibrateSwitch.isChecked
         prefs.wrongSound = selectedSound()
+        prefs.mathLevel = selectedLevel()
+        prefs.teacherEnabled = teacherSwitch.isChecked
+        prefs.teacherVoice = teacherVoiceSel
         if (!prefs.mathEnabled) {
             prefs.quizRetry = ""
             prefs.quizRetryAt = 0L

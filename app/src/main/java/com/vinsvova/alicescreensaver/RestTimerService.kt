@@ -79,6 +79,7 @@ class RestTimerService : Service() {
         power = getSystemService(PowerManager::class.java)
         keyguard = getSystemService(KeyguardManager::class.java)
         createChannel()
+        Teacher.init(this, prefs.teacherVoice)
 
         playedMs = prefs.playedSeconds * 1000
         mathPlayedMs = prefs.mathPlayedSeconds * 1000
@@ -119,6 +120,7 @@ class RestTimerService : Service() {
                 mathPlayedMs = prefs.mathPlayedSeconds * 1000
                 warned = false
                 overlay?.setMessage(prefs.message)
+                Teacher.setVoice(prefs.teacherVoice)
                 if (!prefs.mathEnabled) {
                     prefs.activeQuiz = ""
                     hideQuiz()
@@ -262,7 +264,7 @@ class RestTimerService : Service() {
     }
 
     private fun newTasks(): List<Task> =
-        TaskGenerator.generate(prefs.mathCount.coerceIn(1, 10), prefs.mathCategories)
+        TaskGenerator.generate(prefs.mathCount.coerceIn(1, 10), prefs.mathCategories, prefs.mathLevel)
 
     /** Начинается новый период пользования: сначала задания, потом отсчёт. */
     private fun markNewPeriod() {

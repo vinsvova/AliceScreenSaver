@@ -253,7 +253,7 @@ class QuizOverlay(
             setFeedback(if (current.sign) "Выбери знак" else "Впиши ответ", R.color.rest_text_soft)
             return
         }
-        if (answer == current.answer) onCorrect() else onWrong("Подумай ещё!")
+        if (answer == current.answer) onCorrect() else onWrong(timeUp = false)
     }
 
     private fun onCorrect() {
@@ -266,7 +266,13 @@ class QuizOverlay(
         inputLocked = true
         catView.setImageResource(R.drawable.cat_happy)
         bounce(catView)
-        setFeedback("Верно!", R.color.quiz_ok)
+        if (prefs.teacherEnabled) {
+            val phrase = Teacher.nextPraise()
+            setFeedback(phrase, R.color.quiz_ok)
+            Teacher.say(phrase)
+        } else {
+            setFeedback("Верно!", R.color.quiz_ok)
+        }
         handler.postDelayed({
             if (finished || root == null) return@postDelayed
             index++
@@ -274,20 +280,24 @@ class QuizOverlay(
         }, NEXT_TASK_DELAY_MS)
     }
 
-    private fun onWrong(message: String) {
+    private fun onWrong(timeUp: Boolean) {
         missed[index] = true
         wrongNow = true
         answer = ""
         catView.setImageResource(R.drawable.cat_sad)
         shake(catView)
-        setFeedback(message, R.color.rest_error)
-        WrongFeedback.play(context, prefs)
+        val phrase = if (prefs.teacherEnabled) Teacher.nextError() else "Подумай ещё!"
+        setFeedback(if (timeUp) "Время вышло! $phrase" else phrase, R.color.rest_error)
+        // Сначала звук (рычание, шипение…), потом замечание учительницы.
+        WrongFeedback.play(context, prefs) {
+            if (prefs.teacherEnabled && root != null) Teacher.say(if (timeUp) "Время вышло! $phrase" else phrase)
+        }
         refreshAnswer()
     }
 
     private fun onTimeUp() {
         secondsLeft = answerSeconds
-        onWrong("Время вышло! Подумай ещё!")
+        onWrong(timeUp = true)
     }
 
     private fun success() {
@@ -299,6 +309,10 @@ class QuizOverlay(
         feedbackView.text = "Молодец! Так держать!"
         feedbackView.setTextColor(color(R.color.rest_accent))
         feedbackView.textSize = 40f
+        if (prefs.teacherEnabled) {
+            WrongFeedback.stop()
+            Teacher.say(Teacher.nextPraise())
+        }
         timerView.visibility = View.GONE
         keypadView.visibility = View.INVISIBLE
         parentButton?.visibility = View.GONE
@@ -481,6 +495,6 @@ class QuizOverlay(
         private const val SUCCESS_SHOW_MS = 3000L
 
         /** Пауза после верного ответа перед следующим заданием. */
-        private const val NEXT_TASK_DELAY_MS = 1200L
+        private const val NEXT_TASK_DELAY_MS = 1600L
     }
 }
