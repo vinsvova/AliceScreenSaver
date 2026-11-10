@@ -25,11 +25,26 @@
     <string name="cancel">Отмена</string>
     <string name="skip_quiz">Пропустить</string>
 
-    <string name="math_title">Примеры по математике</string>
-    <string name="math_hint">Каждые N минут пользования на экране появятся два примера на умножение и деление. Пока ребёнок не решит их верно, планшет не откроется. Примеры с ошибками повторятся через 3 минуты.</string>
+    <string name="math_title">Задания по математике</string>
+    <string name="math_hint">Каждые N минут пользования на экране появляются задания. Пока ребёнок не решит их верно, планшет не откроется. Задания с ошибками повторятся через 3 минуты.</string>
     <string name="math_interval">Каждые, минут</string>
-    <string name="math_seconds">На ответ, секунд</string>
-    <string name="quiz_now">Примеры сейчас (проверка)</string>
+    <string name="math_seconds">На задание, секунд</string>
+    <string name="math_count">Заданий за один раз</string>
+    <string name="math_at_start">Задания в начале каждого периода (после перерыва и ночной блокировки)</string>
+    <string name="math_kinds">Виды заданий</string>
+    <string name="cat_plain">Примеры: 7 × 8, 56 : 7</string>
+    <string name="cat_words">Таблица умножения словами: «Увеличь 7 в 4 раза»</string>
+    <string name="cat_steps">Действия в два шага: «Сумму 31 и 17 раздели на 8»</string>
+    <string name="cat_compare">Сравнение величин: м, дм, см (знаки &gt;, &lt;, =)</string>
+    <string name="cat_problems">Текстовые задачи</string>
+    <string name="wrong_title">При неправильном ответе</string>
+    <string name="wrong_vibrate">Вибрация</string>
+    <string name="sound_none">Без звука</string>
+    <string name="sound_growl">Рычание</string>
+    <string name="sound_hiss">Шипение</string>
+    <string name="sound_wild">Дикая природа</string>
+    <string name="sound_preview">▶ Прослушать звук</string>
+    <string name="quiz_now">Задания сейчас (проверка)</string>
 
     <string name="admin_description">Не даёт удалить «Таймер отдыха» без ведома родителя.</string>
 </resources>

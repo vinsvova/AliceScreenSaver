@@ -4,6 +4,7 @@ import android.animation.ObjectAnimator
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.PixelFormat
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.os.Build
@@ -27,30 +28,31 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 
 /**
- * Полноэкранное окно с примерами поверх всех приложений.
- * Ответ вводится на собственной крупной цифровой клавиатуре.
- * Окно не закрывается, пока все примеры не решены верно (или родитель не введёт PIN).
+ * Полноэкранное окно с заданиями поверх всех приложений.
+ * Задания показываются по одному. Пока текущее не решено верно, следующее не откроется,
+ * а окно не закроется (родитель может пропустить задания по PIN).
  *
- * onDone получает список примеров, в которых ребёнок хотя бы раз ошибся или не успел.
+ * onDone получает список заданий, в которых ребёнок хотя бы раз ошибся или не успел.
  */
 class QuizOverlay(
     private val context: Context,
     private val prefs: Prefs,
-    private val examples: List<Example>,
+    private val tasks: List<Task>,
     private val isRetry: Boolean,
     private val answerSeconds: Int,
-    private val onDone: (List<Example>) -> Unit,
+    private val onDone: (List<Task>) -> Unit,
     private val onParentSkip: () -> Unit
 ) {
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private val power = context.getSystemService(PowerManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
 
-    private val solved = BooleanArray(examples.size)
-    private val missed = BooleanArray(examples.size)
-    private val wrongNow = BooleanArray(examples.size)
-    private val answers = Array(examples.size) { "" }
-    private var active = 0
+    private val missed = BooleanArray(tasks.size)
+    private var index = 0
+    private var answer = ""
+    private var wrongNow = false
+    private var correctNow = false
+    private var inputLocked = false
     private var finished = false
     private var secondsLeft = answerSeconds
 
@@ -59,8 +61,12 @@ class QuizOverlay(
     private lateinit var titleView: TextView
     private lateinit var feedbackView: TextView
     private lateinit var timerView: TextView
+    private lateinit var taskRow: LinearLayout
+    private lateinit var taskView: TextView
+    private lateinit var answerView: TextView
     private lateinit var keypadView: LinearLayout
-    private val fieldViews = mutableListOf<TextView>()
+    private lateinit var digitsPad: LinearLayout
+    private lateinit var signsPad: LinearLayout
 
     private var parentPanel: View? = null
     private var parentButton: View? = null
@@ -69,11 +75,13 @@ class QuizOverlay(
 
     val isShown: Boolean get() = root != null
 
+    private val current: Task get() = tasks[index]
+
     private val timerRunnable = object : Runnable {
         override fun run() {
             if (finished || root == null) return
-            // Пока экран выключен, время на ответ не уходит.
-            if (power.isInteractive) {
+            // Пока экран выключен или идёт переход к следующему заданию, время не уходит.
+            if (power.isInteractive && !inputLocked) {
                 secondsLeft--
                 if (secondsLeft <= 0) onTimeUp()
             }
@@ -83,7 +91,7 @@ class QuizOverlay(
     }
 
     fun show() {
-        if (root != null) return
+        if (root != null || tasks.isEmpty()) return
         val themed = ContextThemeWrapper(context, R.style.Theme_App)
 
         val container = object : FrameLayout(themed) {
@@ -96,9 +104,10 @@ class QuizOverlay(
                 if (event.action == KeyEvent.ACTION_DOWN && pinEdit?.hasFocus() != true) {
                     when (event.keyCode) {
                         in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> {
-                            onDigit(('0' + (event.keyCode - KeyEvent.KEYCODE_0)))
+                            onKey(('0' + (event.keyCode - KeyEvent.KEYCODE_0)).toString())
                             return true
                         }
+                        KeyEvent.KEYCODE_EQUALS -> { onKey("="); return true }
                         KeyEvent.KEYCODE_DEL -> { onBackspace(); return true }
                         KeyEvent.KEYCODE_ENTER -> { check(); return true }
                     }
@@ -112,14 +121,12 @@ class QuizOverlay(
         titleView = container.findViewById(R.id.quiz_title)
         feedbackView = container.findViewById(R.id.quiz_feedback)
         timerView = container.findViewById(R.id.quiz_timer)
+        taskRow = container.findViewById(R.id.quiz_task_row)
+        taskView = container.findViewById(R.id.quiz_task)
+        answerView = container.findViewById(R.id.quiz_answer)
         keypadView = container.findViewById(R.id.quiz_keypad)
 
-        titleView.text = if (isRetry) "Давай ещё раз эти примеры" else "Реши примеры"
-        setFeedback("Котик ждёт ответ", R.color.rest_text_soft)
-        catView.setImageResource(R.drawable.cat_neutral)
-
-        buildExamples(container.findViewById(R.id.quiz_examples))
-        buildKeypad()
+        buildKeypads()
 
         parentPanel = container.findViewById(R.id.parent_panel)
         parentButton = container.findViewById(R.id.parent_button)
@@ -154,8 +161,7 @@ class QuizOverlay(
         container.requestFocus()
         container.post { hideSystemBars(container) }
 
-        refreshFields()
-        updateTimer()
+        loadTask()
         handler.postDelayed(timerRunnable, 1000)
     }
 
@@ -171,153 +177,117 @@ class QuizOverlay(
         root = null
     }
 
-    // ---------- Построение экрана ----------
+    // ---------- Задание ----------
 
-    private fun buildExamples(container: LinearLayout) {
-        examples.forEachIndexed { i, ex ->
-            val row = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(6), 0, dp(6))
-            }
-            val text = TextView(context).apply {
-                this.text = ex.text
-                textSize = 56f
-                setTextColor(color(R.color.rest_text))
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
-                gravity = Gravity.END
-                minWidth = dp(230)
-            }
-            val field = TextView(context).apply {
-                textSize = 56f
-                gravity = Gravity.CENTER
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
-                setTextColor(color(R.color.rest_text))
-                setPadding(dp(12), 0, dp(12), 0)
-                setOnClickListener {
-                    if (!solved[i] && !finished) {
-                        active = i
-                        refreshFields()
-                    }
-                }
-            }
-            row.addView(text)
-            row.addView(field, LinearLayout.LayoutParams(dp(140), dp(88)).apply { marginStart = dp(14) })
-            container.addView(row)
-            fieldViews.add(field)
-        }
-    }
+    private fun loadTask() {
+        val task = current
+        answer = ""
+        wrongNow = false
+        correctNow = false
+        inputLocked = false
+        secondsLeft = answerSeconds
 
-    private fun buildKeypad() {
-        val rows = listOf(
-            listOf("1", "2", "3"),
-            listOf("4", "5", "6"),
-            listOf("7", "8", "9"),
-            listOf("⌫", "0", "✓")
+        val prefix = if (isRetry) "Повторим. " else ""
+        titleView.text = if (tasks.size > 1) "${prefix}Задание ${index + 1} из ${tasks.size}" else "${prefix}Реши задание"
+        catView.setImageResource(R.drawable.cat_neutral)
+        setFeedback(
+            when {
+                task.sign -> "Нажми знак и ✓"
+                index == 0 -> "Котик ждёт ответ"
+                else -> ""
+            },
+            R.color.rest_text_soft
         )
-        for (labels in rows) {
-            val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-            for (label in labels) {
-                val isCheck = label == "✓"
-                val key = TextView(context).apply {
-                    text = label
-                    textSize = if (isCheck) 36f else 32f
-                    gravity = Gravity.CENTER
-                    setTypeface(typeface, android.graphics.Typeface.BOLD)
-                    setTextColor(color(if (isCheck) R.color.rest_background else R.color.rest_text))
-                    background = keyBackground(color(if (isCheck) R.color.rest_accent else R.color.quiz_key))
-                    isClickable = true
-                    isFocusable = false
-                    setOnClickListener {
-                        when (label) {
-                            "⌫" -> onBackspace()
-                            "✓" -> check()
-                            else -> onDigit(label[0])
-                        }
-                    }
-                }
-                row.addView(key, LinearLayout.LayoutParams(dp(92), dp(66)).apply { setMargins(dp(5), dp(5), dp(5), dp(5)) })
-            }
-            keypadView.addView(row)
+
+        taskView.text = task.text
+        taskView.textSize = when {
+            task.plain -> 60f
+            task.text.length <= 40 -> 36f
+            task.text.length <= 80 -> 30f
+            else -> 25f
         }
+        // Короткий пример: поле ответа справа, как в тетради. Иначе — под заданием.
+        val lp = answerView.layoutParams as LinearLayout.LayoutParams
+        if (task.plain) {
+            taskRow.orientation = LinearLayout.HORIZONTAL
+            lp.topMargin = 0
+            lp.marginStart = dp(16)
+        } else {
+            taskRow.orientation = LinearLayout.VERTICAL
+            lp.topMargin = dp(12)
+            lp.marginStart = 0
+        }
+        answerView.layoutParams = lp
+
+        digitsPad.visibility = if (task.sign) View.GONE else View.VISIBLE
+        signsPad.visibility = if (task.sign) View.VISIBLE else View.GONE
+
+        refreshAnswer()
+        updateTimer()
     }
 
-    // ---------- Ввод и проверка ----------
-
-    private fun onDigit(d: Char) {
-        if (finished) return
-        val i = active
-        if (solved[i]) return
-        if (answers[i].length >= 2) return
-        if (answers[i].isEmpty() && d == '0') return
-        answers[i] += d
-        wrongNow[i] = false
-        refreshFields()
+    private fun onKey(key: String) {
+        if (finished || inputLocked) return
+        if (current.sign) {
+            if (key !in setOf(">", "<", "=")) return
+            answer = key
+        } else {
+            if (key.length != 1 || !key[0].isDigit()) return
+            if (answer.length >= 3) return
+            if (answer.isEmpty() && key == "0") return
+            answer += key
+        }
+        wrongNow = false
+        refreshAnswer()
     }
 
     private fun onBackspace() {
-        if (finished) return
-        val i = active
-        if (solved[i] || answers[i].isEmpty()) return
-        answers[i] = answers[i].dropLast(1)
-        refreshFields()
+        if (finished || inputLocked || answer.isEmpty()) return
+        answer = answer.dropLast(1)
+        refreshAnswer()
     }
 
     private fun check() {
-        if (finished) return
-        val unsolved = examples.indices.filter { !solved[it] }
-        val filled = unsolved.filter { answers[it].isNotEmpty() }
-        if (filled.isEmpty()) {
-            setFeedback("Впиши ответ в окошко", R.color.rest_text_soft)
+        if (finished || inputLocked) return
+        if (answer.isEmpty()) {
+            setFeedback(if (current.sign) "Выбери знак" else "Впиши ответ", R.color.rest_text_soft)
             return
         }
+        if (answer == current.answer) onCorrect() else onWrong("Подумай ещё!")
+    }
 
-        var anyWrong = false
-        for (i in filled) {
-            if (answers[i].toIntOrNull() == examples[i].answer) {
-                solved[i] = true
-            } else {
-                missed[i] = true
-                wrongNow[i] = true
-                answers[i] = ""
-                anyWrong = true
-            }
+    private fun onCorrect() {
+        correctNow = true
+        refreshAnswer()
+        if (index == tasks.lastIndex) {
+            success()
+            return
         }
+        inputLocked = true
+        catView.setImageResource(R.drawable.cat_happy)
+        bounce(catView)
+        setFeedback("Верно!", R.color.quiz_ok)
+        handler.postDelayed({
+            if (finished || root == null) return@postDelayed
+            index++
+            loadTask()
+        }, NEXT_TASK_DELAY_MS)
+    }
 
-        when {
-            examples.indices.all { solved[it] } -> success()
-            anyWrong -> {
-                catView.setImageResource(R.drawable.cat_sad)
-                shake(catView)
-                setFeedback("Подумай ещё!", R.color.rest_error)
-                active = examples.indices.first { !solved[it] && wrongNow[it] }
-            }
-            else -> {
-                catView.setImageResource(R.drawable.cat_neutral)
-                setFeedback("Верно! Теперь следующий пример", R.color.quiz_ok)
-                active = examples.indices.first { !solved[it] }
-            }
-        }
-        refreshFields()
+    private fun onWrong(message: String) {
+        missed[index] = true
+        wrongNow = true
+        answer = ""
+        catView.setImageResource(R.drawable.cat_sad)
+        shake(catView)
+        setFeedback(message, R.color.rest_error)
+        WrongFeedback.play(context, prefs)
+        refreshAnswer()
     }
 
     private fun onTimeUp() {
-        var any = false
-        for (i in examples.indices) {
-            if (!solved[i]) {
-                missed[i] = true
-                wrongNow[i] = true
-                answers[i] = ""
-                any = true
-            }
-        }
-        if (!any) return
-        catView.setImageResource(R.drawable.cat_sad)
-        shake(catView)
-        setFeedback("Время вышло! Подумай ещё!", R.color.rest_error)
-        active = examples.indices.first { !solved[it] }
         secondsLeft = answerSeconds
-        refreshFields()
+        onWrong("Время вышло! Подумай ещё!")
     }
 
     private fun success() {
@@ -325,39 +295,33 @@ class QuizOverlay(
         handler.removeCallbacks(timerRunnable)
         catView.setImageResource(R.drawable.cat_happy)
         bounce(catView)
-        titleView.text = "Молодец! Так держать!"
-        titleView.setTextColor(color(R.color.rest_accent))
-        titleView.textSize = 40f
-        feedbackView.text = ""
+        titleView.text = ""
+        feedbackView.text = "Молодец! Так держать!"
+        feedbackView.setTextColor(color(R.color.rest_accent))
+        feedbackView.textSize = 40f
         timerView.visibility = View.GONE
         keypadView.visibility = View.INVISIBLE
         parentButton?.visibility = View.GONE
         parentPanel?.visibility = View.GONE
         hideKeyboard()
-        val missedList = examples.filterIndexed { i, _ -> missed[i] }
+        val missedList = tasks.filterIndexed { i, _ -> missed[i] }
         handler.postDelayed({ onDone(missedList) }, SUCCESS_SHOW_MS)
     }
 
-    private fun refreshFields() {
-        fieldViews.forEachIndexed { i, field ->
-            field.text = answers[i].ifEmpty { if (solved[i]) "" else "?" }.let {
-                if (solved[i]) examples[i].answer.toString() else it
-            }
-            field.alpha = if (!solved[i] && answers[i].isEmpty()) 0.55f else 1f
-            val (stroke, fill, width) = when {
-                solved[i] -> Triple(color(R.color.quiz_ok), color(R.color.quiz_ok_fill), 3)
-                wrongNow[i] && i == active -> Triple(color(R.color.rest_error), color(R.color.rest_card), 4)
-                i == active && !finished -> Triple(color(R.color.rest_accent), color(R.color.rest_card), 4)
-                wrongNow[i] -> Triple(color(R.color.rest_error), color(R.color.rest_card), 3)
-                else -> Triple(color(R.color.rest_text_soft), color(R.color.rest_card), 2)
-            }
-            field.background = GradientDrawable().apply {
-                cornerRadius = dp(18).toFloat()
-                setColor(fill)
-                setStroke(dp(width), stroke)
-            }
-            field.setTextColor(color(if (solved[i]) R.color.quiz_ok else R.color.rest_text))
+    private fun refreshAnswer() {
+        val (stroke, fill, width) = when {
+            correctNow -> Triple(color(R.color.quiz_ok), color(R.color.quiz_ok_fill), 3)
+            wrongNow -> Triple(color(R.color.rest_error), color(R.color.rest_card), 4)
+            else -> Triple(color(R.color.rest_accent), color(R.color.rest_card), 4)
         }
+        answerView.background = GradientDrawable().apply {
+            cornerRadius = dp(18).toFloat()
+            setColor(fill)
+            setStroke(dp(width), stroke)
+        }
+        answerView.text = answer.ifEmpty { "?" }
+        answerView.alpha = if (answer.isEmpty()) 0.55f else 1f
+        answerView.setTextColor(color(if (correctNow) R.color.quiz_ok else R.color.rest_text))
     }
 
     private fun updateTimer() {
@@ -369,6 +333,56 @@ class QuizOverlay(
     private fun setFeedback(text: String, colorRes: Int) {
         feedbackView.text = text
         feedbackView.setTextColor(color(colorRes))
+    }
+
+    // ---------- Клавиатура ----------
+
+    private fun buildKeypads() {
+        digitsPad = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        listOf(
+            listOf("1", "2", "3"),
+            listOf("4", "5", "6"),
+            listOf("7", "8", "9"),
+            listOf("⌫", "0", "✓")
+        ).forEach { digitsPad.addView(keyRow(it, 92, 66, 32f)) }
+
+        signsPad = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        signsPad.addView(keyRow(listOf("<", "=", ">"), 92, 92, 48f))
+        signsPad.addView(keyRow(listOf("⌫", "✓"), 141, 66, 32f))
+
+        keypadView.addView(digitsPad)
+        keypadView.addView(signsPad)
+    }
+
+    private fun keyRow(labels: List<String>, widthDp: Int, heightDp: Int, size: Float): LinearLayout {
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        for (label in labels) {
+            val isCheck = label == "✓"
+            val key = TextView(context).apply {
+                text = label
+                textSize = if (isCheck) 36f else size
+                gravity = Gravity.CENTER
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(color(if (isCheck) R.color.rest_background else R.color.rest_text))
+                background = keyBackground(color(if (isCheck) R.color.rest_accent else R.color.quiz_key))
+                isClickable = true
+                isFocusable = false
+                setOnClickListener {
+                    when (label) {
+                        "⌫" -> onBackspace()
+                        "✓" -> check()
+                        else -> onKey(label)
+                    }
+                }
+            }
+            row.addView(key, LinearLayout.LayoutParams(dp(widthDp), dp(heightDp)).apply {
+                setMargins(dp(5), dp(5), dp(5), dp(5))
+            })
+        }
+        return row
     }
 
     // ---------- Родитель ----------
@@ -465,5 +479,8 @@ class QuizOverlay(
     companion object {
         /** Сколько показывать «Молодец!» с довольным котиком. */
         private const val SUCCESS_SHOW_MS = 3000L
+
+        /** Пауза после верного ответа перед следующим заданием. */
+        private const val NEXT_TASK_DELAY_MS = 1200L
     }
 }

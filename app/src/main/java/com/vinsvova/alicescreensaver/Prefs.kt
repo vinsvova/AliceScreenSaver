@@ -93,12 +93,42 @@ class Prefs(context: Context) {
         get() = sp.getInt(KEY_MATH_SECONDS, 60)
         set(value) { sp.edit().putInt(KEY_MATH_SECONDS, value).apply() }
 
+    /** Сколько заданий показывать за один раз. */
+    var mathCount: Int
+        get() = sp.getInt(KEY_MATH_COUNT, 2)
+        set(value) { sp.edit().putInt(KEY_MATH_COUNT, value).apply() }
+
+    /** Включённые виды заданий (TaskGenerator.CAT_*). */
+    var mathCategories: Set<String>
+        get() = sp.getStringSet(KEY_MATH_CATS, null)?.toSet() ?: TaskGenerator.ALL.toSet()
+        set(value) { sp.edit().putStringSet(KEY_MATH_CATS, value.toSet()).apply() }
+
+    /** Показывать задания в начале каждого нового периода пользования. */
+    var mathAtStart: Boolean
+        get() = sp.getBoolean(KEY_MATH_AT_START, true)
+        set(value) { sp.edit().putBoolean(KEY_MATH_AT_START, value).apply() }
+
+    /** Начался новый период — перед ним нужно показать задания. */
+    var startQuizPending: Boolean
+        get() = sp.getBoolean(KEY_START_PENDING, false)
+        set(value) { sp.edit().putBoolean(KEY_START_PENDING, value).apply() }
+
+    /** Вибрация при неправильном ответе. */
+    var wrongVibrate: Boolean
+        get() = sp.getBoolean(KEY_WRONG_VIBRATE, true)
+        set(value) { sp.edit().putBoolean(KEY_WRONG_VIBRATE, value).apply() }
+
+    /** Звук при неправильном ответе: none, growl, hiss, wild. */
+    var wrongSound: String
+        get() = sp.getString(KEY_WRONG_SOUND, null) ?: SOUND_HISS
+        set(value) { sp.edit().putString(KEY_WRONG_SOUND, value).apply() }
+
     /** Сколько секунд активности прошло с последних примеров. */
     var mathPlayedSeconds: Long
         get() = sp.getLong(KEY_MATH_PLAYED, 0L)
         set(value) { sp.edit().putLong(KEY_MATH_PLAYED, value).apply() }
 
-    /** Примеры, которые сейчас на экране (пусто — экрана с примерами нет). */
+    /** Задания, которые сейчас на экране, в JSON (пусто — экрана с заданиями нет). */
     var activeQuiz: String
         get() = sp.getString(KEY_QUIZ_ACTIVE, "") ?: ""
         set(value) { sp.edit().putString(KEY_QUIZ_ACTIVE, value).apply() }
@@ -175,6 +205,17 @@ class Prefs(context: Context) {
         private const val KEY_MATH_INTERVAL = "math_interval"
         private const val KEY_MATH_SECONDS = "math_seconds"
         private const val KEY_MATH_PLAYED = "math_played_seconds"
+        private const val KEY_MATH_COUNT = "math_count"
+        private const val KEY_MATH_CATS = "math_categories"
+        private const val KEY_MATH_AT_START = "math_at_start"
+        private const val KEY_START_PENDING = "start_quiz_pending"
+        private const val KEY_WRONG_VIBRATE = "wrong_vibrate"
+        private const val KEY_WRONG_SOUND = "wrong_sound"
+
+        const val SOUND_NONE = "none"
+        const val SOUND_GROWL = "growl"
+        const val SOUND_HISS = "hiss"
+        const val SOUND_WILD = "wild"
         private const val KEY_QUIZ_ACTIVE = "quiz_active"
         private const val KEY_QUIZ_ACTIVE_RETRY = "quiz_active_retry"
         private const val KEY_QUIZ_RETRY = "quiz_retry"

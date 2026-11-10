@@ -15,7 +15,9 @@ import android.provider.Settings
 import android.text.InputType
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.RadioGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -48,6 +50,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mathSwitch: MaterialSwitch
     private lateinit var mathIntervalEdit: EditText
     private lateinit var mathSecondsEdit: EditText
+    private lateinit var mathCountEdit: EditText
+    private lateinit var mathAtStartSwitch: MaterialSwitch
+    private lateinit var wrongVibrateSwitch: MaterialSwitch
+    private lateinit var soundGroup: RadioGroup
+
+    private val categoryBoxes by lazy {
+        mapOf(
+            TaskGenerator.CAT_PLAIN to findViewById<CheckBox>(R.id.cat_plain),
+            TaskGenerator.CAT_WORDS to findViewById<CheckBox>(R.id.cat_words),
+            TaskGenerator.CAT_STEPS to findViewById<CheckBox>(R.id.cat_steps),
+            TaskGenerator.CAT_COMPARE to findViewById<CheckBox>(R.id.cat_compare),
+            TaskGenerator.CAT_PROBLEMS to findViewById<CheckBox>(R.id.cat_problems)
+        )
+    }
+
+    private val soundButtons = mapOf(
+        Prefs.SOUND_NONE to R.id.sound_none,
+        Prefs.SOUND_GROWL to R.id.sound_growl,
+        Prefs.SOUND_HISS to R.id.sound_hiss,
+        Prefs.SOUND_WILD to R.id.sound_wild
+    )
     private lateinit var overlayButton: Button
     private lateinit var notificationsButton: Button
     private lateinit var batteryButton: Button
@@ -91,8 +114,24 @@ class MainActivity : AppCompatActivity() {
         mathSwitch = findViewById(R.id.math_enabled)
         mathIntervalEdit = findViewById(R.id.math_interval)
         mathSecondsEdit = findViewById(R.id.math_seconds)
+        mathCountEdit = findViewById(R.id.math_count)
+        mathAtStartSwitch = findViewById(R.id.math_at_start)
+        wrongVibrateSwitch = findViewById(R.id.wrong_vibrate)
+        soundGroup = findViewById(R.id.wrong_sound)
         mathSwitch.setOnCheckedChangeListener { _, checked -> updateMathFields(checked) }
         findViewById<Button>(R.id.quiz_now).setOnClickListener { quizNow() }
+        findViewById<Button>(R.id.sound_preview).setOnClickListener {
+            val sound = selectedSound()
+            if (sound == Prefs.SOUND_NONE) {
+                Toast.makeText(this, "Звук выключен", Toast.LENGTH_SHORT).show()
+            } else {
+                WrongFeedback.playSound(this, sound)
+            }
+            if (wrongVibrateSwitch.isChecked) WrongFeedback.vibrate(this)
+        }
+        if (!WrongFeedback.hasVibrator(this)) {
+            wrongVibrateSwitch.text = "Вибрация (на этом устройстве нет вибромотора)"
+        }
         overlayButton = findViewById(R.id.perm_overlay)
         notificationsButton = findViewById(R.id.perm_notifications)
         batteryButton = findViewById(R.id.perm_battery)
@@ -118,6 +157,12 @@ class MainActivity : AppCompatActivity() {
             content.visibility = View.INVISIBLE
             if (prefs.hasPin()) askPin() else askNewPin(firstTime = true)
         }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        parentVisible = false
+        WrongFeedback.stop()
     }
 
     override fun onStop() {
@@ -247,7 +292,14 @@ class MainActivity : AppCompatActivity() {
         mathSwitch.isChecked = prefs.mathEnabled
         mathIntervalEdit.setText(prefs.mathIntervalMinutes.toString())
         mathSecondsEdit.setText(prefs.mathAnswerSeconds.toString())
+        mathCountEdit.setText(prefs.mathCount.toString())
+        mathAtStartSwitch.isChecked = prefs.mathAtStart
+        val cats = prefs.mathCategories
+        categoryBoxes.forEach { (key, box) -> box.isChecked = key in cats }
+        wrongVibrateSwitch.isChecked = prefs.wrongVibrate
+        soundGroup.check(soundButtons[prefs.wrongSound] ?: R.id.sound_hiss)
         updateMathFields(prefs.mathEnabled)
+        parentVisible = true
         refreshPermissions()
         handler.removeCallbacks(refresher)
         handler.post(refresher)
@@ -260,7 +312,7 @@ class MainActivity : AppCompatActivity() {
             !prefs.enabled -> "⏸ Таймер выключен"
             prefs.isBlockedNow(now) -> "🌙 Планшет заблокирован до ${formatClock(prefs.blockEnd)}"
             restEnd > now -> "🌿 Идёт перерыв, осталось ${formatDuration(restEnd - now)}"
-            prefs.activeQuiz.isNotEmpty() -> "✏️ Ребёнок решает примеры"
+            prefs.activeQuiz.isNotEmpty() -> "✏️ Ребёнок решает задания"
             else -> {
                 val left = (prefs.playMinutes * 60_000L - prefs.playedSeconds * 1000).coerceAtLeast(0)
                 "▶ Таймер работает. До перерыва ${formatDuration(left)}"
@@ -280,11 +332,14 @@ class MainActivity : AppCompatActivity() {
         if (!prefs.enabled || !prefs.mathEnabled || prefs.activeQuiz.isNotEmpty()) return text
         val now = System.currentTimeMillis()
         val retryAt = prefs.quizRetryAt
-        val line = if (prefs.quizRetry.isNotEmpty() && retryAt > 0) {
-            "Повтор ошибок через ${formatDuration((retryAt - now).coerceAtLeast(0))}"
-        } else {
-            val left = (prefs.mathIntervalMinutes * 60_000L - prefs.mathPlayedSeconds * 1000).coerceAtLeast(0)
-            "Примеры через ${formatDuration(left)}"
+        val line = when {
+            prefs.startQuizPending -> "Задания появятся, когда вы выйдете из настроек"
+            prefs.quizRetry.isNotEmpty() && retryAt > 0 ->
+                "Повтор ошибок через ${formatDuration((retryAt - now).coerceAtLeast(0))}"
+            else -> {
+                val left = (prefs.mathIntervalMinutes * 60_000L - prefs.mathPlayedSeconds * 1000).coerceAtLeast(0)
+                "Задания через ${formatDuration(left)}"
+            }
         }
         return "$text\n$line"
     }
@@ -292,13 +347,20 @@ class MainActivity : AppCompatActivity() {
     private fun updateMathFields(on: Boolean) {
         findViewById<View>(R.id.math_interval_layout).isEnabled = on
         findViewById<View>(R.id.math_seconds_layout).isEnabled = on
+        findViewById<View>(R.id.math_count_layout).isEnabled = on
+        mathAtStartSwitch.isEnabled = on
+        categoryBoxes.values.forEach { it.isEnabled = on }
     }
+
+    private fun selectedSound(): String =
+        soundButtons.entries.firstOrNull { it.value == soundGroup.checkedRadioButtonId }?.key ?: Prefs.SOUND_NONE
 
     private fun quizNow() {
         if (!prefs.enabled || !prefs.mathEnabled) {
-            Toast.makeText(this, "Включите примеры и нажмите «Сохранить и запустить»", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Включите задания и нажмите «Сохранить и запустить»", Toast.LENGTH_LONG).show()
             return
         }
+        Toast.makeText(this, "Задания появятся через пару секунд", Toast.LENGTH_SHORT).show()
         RestTimerService.send(this, RestTimerService.ACTION_QUIZ_NOW)
     }
 
@@ -345,6 +407,18 @@ class MainActivity : AppCompatActivity() {
                 return
             }
         }
+        val mathCount = mathCountEdit.text.toString().toIntOrNull()
+        val selectedCats = categoryBoxes.filterValues { it.isChecked }.keys
+        if (mathSwitch.isChecked) {
+            if (mathCount == null || mathCount !in 1..10) {
+                mathCountEdit.error = "От 1 до 10"
+                return
+            }
+            if (selectedCats.isEmpty()) {
+                Toast.makeText(this, "Выберите хотя бы один вид заданий", Toast.LENGTH_LONG).show()
+                return
+            }
+        }
         if (blockSwitch.isChecked && blockStartSel == blockEndSel) {
             Toast.makeText(this, "Начало и конец блокировки не должны совпадать", Toast.LENGTH_LONG).show()
             return
@@ -362,9 +436,15 @@ class MainActivity : AppCompatActivity() {
         if (mathInterval != null && mathInterval in 1..240) prefs.mathIntervalMinutes = mathInterval
         if (mathSeconds != null && mathSeconds in 10..600) prefs.mathAnswerSeconds = mathSeconds
         if (intervalChanged || !prefs.mathEnabled) prefs.mathPlayedSeconds = 0L
+        if (mathCount != null && mathCount in 1..10) prefs.mathCount = mathCount
+        if (selectedCats.isNotEmpty()) prefs.mathCategories = selectedCats
+        prefs.mathAtStart = mathAtStartSwitch.isChecked
+        prefs.wrongVibrate = wrongVibrateSwitch.isChecked
+        prefs.wrongSound = selectedSound()
         if (!prefs.mathEnabled) {
             prefs.quizRetry = ""
             prefs.quizRetryAt = 0L
+            prefs.startQuizPending = false
         }
         prefs.message = messageEdit.text.toString().trim().ifEmpty { Prefs.DEFAULT_MESSAGE }
 
@@ -383,6 +463,9 @@ class MainActivity : AppCompatActivity() {
         if (!wasEnabled) {
             prefs.playedSeconds = 0L
             prefs.restEndsAt = 0L
+            prefs.mathPlayedSeconds = 0L
+            // Первый период тоже начинается с заданий — когда родитель выйдет из настроек.
+            if (prefs.mathEnabled && prefs.mathAtStart) prefs.startQuizPending = true
         }
         RestTimerService.send(this, RestTimerService.ACTION_RELOAD)
         Toast.makeText(this, "Таймер запущен", Toast.LENGTH_SHORT).show()
@@ -515,5 +598,9 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_NOTIFICATIONS = 10
+
+        /** Родитель сейчас в открытых настройках — новые задания не показываем поверх. */
+        @Volatile
+        var parentVisible = false
     }
 }

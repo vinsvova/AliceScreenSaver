@@ -39,6 +39,7 @@ class RestTimerService : Service() {
     private var lastTick = 0L
     private var playedMs = 0L
     private var mathPlayedMs = 0L
+    private var wasBlocked = false
     private var warned = false
     private var lastNotificationText = ""
     private var receiverRegistered = false
@@ -62,6 +63,7 @@ class RestTimerService : Service() {
                         System.currentTimeMillis() - offAt >= prefs.restMinutes * 60_000L
                     ) {
                         resetPlay()
+                        markNewPeriod()
                     }
                     tick()
                 }
@@ -81,6 +83,7 @@ class RestTimerService : Service() {
         playedMs = prefs.playedSeconds * 1000
         mathPlayedMs = prefs.mathPlayedSeconds * 1000
         lastTick = SystemClock.elapsedRealtime()
+        wasBlocked = prefs.isBlockedNow()
 
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
@@ -128,10 +131,10 @@ class RestTimerService : Service() {
             }
             ACTION_QUIZ_NOW -> {
                 if (!prefs.isBlockedNow() && prefs.restEndsAt == 0L) {
-                    startQuiz(Example.generatePair(), isRetry = false)
+                    startQuiz(newTasks(), isRetry = false)
                 }
             }
-            ACTION_UNLOCK -> endRest()
+            ACTION_UNLOCK -> endRest(newPeriod = false)
         }
         lastNotificationText = ""
         tick()
@@ -159,7 +162,10 @@ class RestTimerService : Service() {
         val now = System.currentTimeMillis()
 
         // Блокировка по расписанию важнее всего остального.
-        if (prefs.isBlockedNow(now)) {
+        val blocked = prefs.isBlockedNow(now)
+        if (wasBlocked && !blocked) markNewPeriod()
+        wasBlocked = blocked
+        if (blocked) {
             hideQuiz()
             val until = formatClock(prefs.blockEnd)
             showOverlay()
@@ -187,15 +193,27 @@ class RestTimerService : Service() {
 
         val interactive = power.isInteractive && !keyguard.isKeyguardLocked
 
-        // Пока ребёнок решает примеры, основное время стоит на паузе.
+        // Пока ребёнок решает задания, основное время стоит на паузе.
         if (prefs.activeQuiz.isNotEmpty()) {
             if (prefs.mathEnabled) {
                 showQuiz()
-                notify("Решаем примеры")
+                notify("Решаем задания")
                 return
             }
             prefs.activeQuiz = ""
             hideQuiz()
+        }
+
+        // Новый период пользования начинается с заданий, отсчёт пойдёт после них.
+        val parentInSettings = MainActivity.parentVisible
+        if (prefs.startQuizPending) {
+            if (!prefs.mathEnabled || !prefs.mathAtStart) {
+                prefs.startQuizPending = false
+            } else if (interactive && !parentInSettings) {
+                prefs.startQuizPending = false
+                startQuiz(newTasks(), isRetry = false)
+                return
+            }
         }
 
         if (interactive) {
@@ -217,15 +235,15 @@ class RestTimerService : Service() {
             return
         }
 
-        if (prefs.mathEnabled && interactive) {
-            val retry = Example.decodeList(prefs.quizRetry)
+        if (prefs.mathEnabled && interactive && !parentInSettings) {
+            val retry = Task.decodeList(prefs.quizRetry)
             val retryAt = prefs.quizRetryAt
             if (retry.isNotEmpty() && retryAt in 1..now) {
                 startQuiz(retry, isRetry = true)
                 return
             }
             if (mathPlayedMs >= prefs.mathIntervalMinutes * 60_000L) {
-                startQuiz(Example.generatePair(), isRetry = false)
+                startQuiz(newTasks(), isRetry = false)
                 return
             }
         }
@@ -234,19 +252,27 @@ class RestTimerService : Service() {
 
     // ---------- Примеры ----------
 
-    private fun startQuiz(examples: List<Example>, isRetry: Boolean) {
+    private fun startQuiz(examples: List<Task>, isRetry: Boolean) {
         if (!Settings.canDrawOverlays(this)) return
         hideQuiz()
-        prefs.activeQuiz = Example.encodeList(examples)
+        prefs.activeQuiz = Task.encodeList(examples)
         prefs.activeQuizIsRetry = isRetry
         showQuiz()
-        notify("Решаем примеры")
+        notify("Решаем задания")
+    }
+
+    private fun newTasks(): List<Task> =
+        TaskGenerator.generate(prefs.mathCount.coerceIn(1, 10), prefs.mathCategories)
+
+    /** Начинается новый период пользования: сначала задания, потом отсчёт. */
+    private fun markNewPeriod() {
+        if (prefs.mathEnabled && prefs.mathAtStart) prefs.startQuizPending = true
     }
 
     private fun showQuiz() {
         if (quiz?.isShown == true) return
         if (!Settings.canDrawOverlays(this)) return
-        val examples = Example.decodeList(prefs.activeQuiz)
+        val examples = Task.decodeList(prefs.activeQuiz)
         if (examples.isEmpty()) {
             prefs.activeQuiz = ""
             return
@@ -254,7 +280,7 @@ class RestTimerService : Service() {
         val q = QuizOverlay(
             context = this,
             prefs = prefs,
-            examples = examples,
+            tasks = examples,
             isRetry = prefs.activeQuizIsRetry,
             answerSeconds = prefs.mathAnswerSeconds,
             onDone = { missed -> finishQuiz(missed, skippedByParent = false) },
@@ -273,7 +299,7 @@ class RestTimerService : Service() {
      * missed — примеры, в которых ребёнок хотя бы раз ошибся или не успел.
      * Они вернутся через 3 минуты, и так до тех пор, пока не будут решены с первого раза.
      */
-    private fun finishQuiz(missed: List<Example>, skippedByParent: Boolean) {
+    private fun finishQuiz(missed: List<Task>, skippedByParent: Boolean) {
         val isRetry = prefs.activeQuizIsRetry
         prefs.activeQuiz = ""
         prefs.activeQuizIsRetry = false
@@ -287,11 +313,11 @@ class RestTimerService : Service() {
         when {
             skippedByParent -> {
                 if (isRetry) clearRetry()
-                Toast.makeText(this, "Примеры пропущены родителем", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Задания пропущены родителем", Toast.LENGTH_SHORT).show()
             }
             missed.isNotEmpty() -> {
-                val earlier = if (isRetry) emptyList() else Example.decodeList(prefs.quizRetry)
-                prefs.quizRetry = Example.encodeList((earlier + missed).distinct())
+                val earlier = if (isRetry) emptyList() else Task.decodeList(prefs.quizRetry)
+                prefs.quizRetry = Task.encodeList((earlier + missed).distinct())
                 prefs.quizRetryAt = System.currentTimeMillis() + RETRY_DELAY_MS
             }
             isRetry -> clearRetry()
@@ -314,9 +340,12 @@ class RestTimerService : Service() {
         overlay?.updateCountdown(prefs.restEndsAt - System.currentTimeMillis())
     }
 
-    private fun endRest() {
+    /** newPeriod = false — перерыв снял родитель, задания в начале не нужны. */
+    private fun endRest(newPeriod: Boolean = true) {
+        val wasResting = prefs.restEndsAt > 0
         prefs.restEndsAt = 0L
         resetPlay()
+        if (wasResting && newPeriod) markNewPeriod()
         hideOverlay()
         lastNotificationText = ""
     }
@@ -349,7 +378,10 @@ class RestTimerService : Service() {
         } else {
             Toast.makeText(this, "Разблокировано родителем", Toast.LENGTH_SHORT).show()
         }
-        endRest()
+        // Родитель открыл планшет сам — задания в начале не показываем.
+        wasBlocked = false
+        prefs.startQuizPending = false
+        endRest(newPeriod = false)
     }
 
     private fun hideOverlay() {

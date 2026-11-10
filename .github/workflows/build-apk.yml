@@ -26,6 +26,17 @@ jobs:
         with:
           gradle-version: 8.11.1
 
+      - name: Unit tests
+        run: gradle testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Upload task samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-samples
+          path: app/build/task-samples.txt
+          if-no-files-found: ignore
+
       - name: Build APK
         run: gradle assembleRelease --no-daemon --stacktrace
 

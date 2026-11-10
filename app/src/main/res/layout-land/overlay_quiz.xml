@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Экран с примерами (горизонтальная ориентация): слева котик и примеры, справа клавиатура. -->
+<!-- Экран заданий (горизонтальная ориентация): слева котик и задание, справа клавиатура. -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -20,45 +20,78 @@
             android:gravity="center"
             android:orientation="vertical">
 
-            <ImageView
-                android:id="@+id/quiz_cat"
-                android:layout_width="110dp"
-                android:layout_height="110dp"
-                android:contentDescription="@null"
-                android:src="@drawable/cat_neutral" />
-
-            <TextView
-                android:id="@+id/quiz_title"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="center"
-                android:textColor="@color/rest_text"
-                android:textSize="26sp"
-                android:textStyle="bold" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/quiz_cat"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/cat_neutral" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/quiz_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/rest_text_soft"
+                        android:textSize="20sp" />
+
+                    <TextView
+                        android:id="@+id/quiz_timer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/rest_accent"
+                        android:textSize="24sp" />
+                </LinearLayout>
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/quiz_feedback"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:minHeight="40dp"
+                android:minHeight="38dp"
                 android:textColor="@color/rest_text_soft"
                 android:textSize="24sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/quiz_timer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/rest_accent"
-                android:textSize="24sp" />
-
             <LinearLayout
-                android:id="@+id/quiz_examples"
-                android:layout_width="wrap_content"
+                android:id="@+id/quiz_task_row"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:orientation="vertical" />
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/quiz_task"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:lineSpacingExtra="4dp"
+                    android:maxWidth="600dp"
+                    android:textColor="@color/rest_text"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/quiz_answer"
+                    android:layout_width="160dp"
+                    android:layout_height="84dp"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:textColor="@color/rest_text"
+                    android:textSize="50sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <include layout="@layout/quiz_parent" />
         </LinearLayout>

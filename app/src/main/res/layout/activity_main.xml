@@ -171,6 +171,116 @@
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/math_count_layout"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:hint="@string/math_count">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/math_count"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="number"
+                android:maxLength="2" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/math_at_start"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/math_at_start" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/math_kinds"
+            android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cat_plain"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_plain" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cat_words"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_words" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cat_steps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_steps" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cat_compare"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_compare" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cat_problems"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_problems" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/wrong_title"
+            android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/wrong_vibrate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/wrong_vibrate" />
+
+        <RadioGroup
+            android:id="@+id/wrong_sound"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/sound_none"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/sound_none" />
+
+            <RadioButton
+                android:id="@+id/sound_growl"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/sound_growl" />
+
+            <RadioButton
+                android:id="@+id/sound_hiss"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/sound_hiss" />
+
+            <RadioButton
+                android:id="@+id/sound_wild"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/sound_wild" />
+        </RadioGroup>
+
+        <Button
+            android:id="@+id/sound_preview"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sound_preview" />
+
         <Button
             android:id="@+id/save_start"
             android:layout_width="match_parent"
