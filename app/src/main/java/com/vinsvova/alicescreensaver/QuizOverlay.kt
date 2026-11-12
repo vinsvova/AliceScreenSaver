@@ -19,6 +19,9 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -37,7 +40,7 @@ import androidx.core.content.ContextCompat
 class QuizOverlay(
     private val context: Context,
     private val prefs: Prefs,
-    private val tasks: List<Task>,
+    initialTasks: List<Task>,
     private val isRetry: Boolean,
     private val answerSeconds: Int,
     private val onDone: (List<Task>) -> Unit,
@@ -47,7 +50,16 @@ class QuizOverlay(
     private val power = context.getSystemService(PowerManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
 
-    private val missed = BooleanArray(tasks.size)
+    private val tasks = initialTasks.toMutableList()
+
+    /** Задания, в которых была ошибка или не хватило времени (вернутся через 3 минуты). */
+    private val missedTasks = mutableListOf<Task>()
+
+    /** Ошибок в текущем задании. */
+    private var wrongCount = 0
+
+    /** Задание уже менялось из-за перебора — на новое даётся одна попытка. */
+    private var lastChance = false
     private var index = 0
     private var answer = ""
     private var wrongNow = false
@@ -67,6 +79,8 @@ class QuizOverlay(
     private lateinit var keypadView: LinearLayout
     private lateinit var digitsPad: LinearLayout
     private lateinit var signsPad: LinearLayout
+    private lateinit var optionsPad: LinearLayout
+    private lateinit var staffView: StaffView
 
     private var parentPanel: View? = null
     private var parentButton: View? = null
@@ -185,6 +199,7 @@ class QuizOverlay(
         wrongNow = false
         correctNow = false
         inputLocked = false
+        wrongCount = 0
         secondsLeft = answerSeconds
 
         val prefix = if (isRetry) "Повторим. " else ""
@@ -192,6 +207,7 @@ class QuizOverlay(
         catView.setImageResource(R.drawable.cat_neutral)
         setFeedback(
             when {
+                task.isNote -> "Выбери правильный ответ"
                 task.sign -> "Нажми знак и ✓"
                 index == 0 -> "Котик ждёт ответ"
                 else -> ""
@@ -219,8 +235,20 @@ class QuizOverlay(
         }
         answerView.layoutParams = lp
 
-        digitsPad.visibility = if (task.sign) View.GONE else View.VISIBLE
-        signsPad.visibility = if (task.sign) View.VISIBLE else View.GONE
+        // Ноты: нотный стан и четыре варианта вместо поля ответа и клавиатуры.
+        if (task.isNote) {
+            staffView.treble = task.clef == "treble"
+            staffView.position = task.pos
+            staffView.visibility = View.VISIBLE
+            answerView.visibility = View.GONE
+            buildOptions(task)
+        } else {
+            staffView.visibility = View.GONE
+            answerView.visibility = View.VISIBLE
+        }
+        digitsPad.visibility = if (task.sign || task.isNote) View.GONE else View.VISIBLE
+        signsPad.visibility = if (task.sign && !task.isNote) View.VISIBLE else View.GONE
+        optionsPad.visibility = if (task.isNote) View.VISIBLE else View.GONE
 
         refreshAnswer()
         updateTimer()
@@ -258,6 +286,7 @@ class QuizOverlay(
 
     private fun onCorrect() {
         correctNow = true
+        lastChance = false
         refreshAnswer()
         if (index == tasks.lastIndex) {
             success()
@@ -281,7 +310,13 @@ class QuizOverlay(
     }
 
     private fun onWrong(timeUp: Boolean) {
-        missed[index] = true
+        if (current !in missedTasks) missedTasks.add(current)
+        wrongCount++
+        // Защита от перебора: после нескольких ошибок задание меняется на другое того же вида.
+        if (lastChance || wrongCount >= current.maxWrong) {
+            replaceTask()
+            return
+        }
         wrongNow = true
         answer = ""
         catView.setImageResource(R.drawable.cat_sad)
@@ -293,6 +328,18 @@ class QuizOverlay(
             if (prefs.teacherEnabled && root != null) Teacher.say(if (timeUp) "Время вышло! $phrase" else phrase)
         }
         refreshAnswer()
+    }
+
+    private fun replaceTask() {
+        tasks[index] = TaskGenerator.replacement(current)
+        lastChance = true
+        loadTask()
+        catView.setImageResource(R.drawable.cat_sad)
+        shake(catView)
+        setFeedback("Не пытайся угадать, подумай!\nПоследняя попытка", R.color.rest_error)
+        WrongFeedback.play(context, prefs) {
+            if (root != null) Teacher.say(GUESS_PHRASE)
+        }
     }
 
     private fun onTimeUp() {
@@ -318,7 +365,7 @@ class QuizOverlay(
         parentButton?.visibility = View.GONE
         parentPanel?.visibility = View.GONE
         hideKeyboard()
-        val missedList = tasks.filterIndexed { i, _ -> missed[i] }
+        val missedList = missedTasks.distinct()
         handler.postDelayed({ onDone(missedList) }, SUCCESS_SHOW_MS)
     }
 
@@ -366,6 +413,16 @@ class QuizOverlay(
 
         keypadView.addView(digitsPad)
         keypadView.addView(signsPad)
+
+        optionsPad = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        keypadView.addView(optionsPad)
+
+        val staffColor = color(R.color.rest_text)
+        staffView = StaffView(context).apply {
+            this.color = staffColor
+            visibility = View.GONE
+        }
+        taskRow.addView(staffView, 1, LinearLayout.LayoutParams(dp(340), dp(170)).apply { topMargin = dp(8) })
     }
 
     private fun keyRow(labels: List<String>, widthDp: Int, heightDp: Int, size: Float): LinearLayout {
@@ -490,7 +547,54 @@ class QuizOverlay(
         }
     }
 
+    /** Четыре крупные кнопки с вариантами ответа (2 × 2). */
+    private fun buildOptions(task: Task) {
+        optionsPad.removeAllViews()
+        task.options.chunked(2).forEach { pair ->
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            pair.forEach { option -> row.addView(optionButton(option), LinearLayout.LayoutParams(dp(170), dp(86)).apply {
+                setMargins(dp(6), dp(6), dp(6), dp(6))
+            }) }
+            optionsPad.addView(row)
+        }
+    }
+
+    private fun optionButton(option: String): TextView {
+        val label = SpannableString(option).apply {
+            val nl = option.indexOf('\n')
+            if (nl > 0) setSpan(RelativeSizeSpan(0.6f), nl, option.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return TextView(context).apply {
+            text = label
+            textSize = 30f
+            gravity = Gravity.CENTER
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(color(R.color.rest_text))
+            background = keyBackground(color(R.color.quiz_key))
+            isClickable = true
+            isFocusable = false
+            setOnClickListener { button ->
+                if (finished || inputLocked) return@setOnClickListener
+                if (option == current.answer) {
+                    button.background = keyBackground(color(R.color.quiz_ok_fill))
+                    onCorrect()
+                } else {
+                    // Неверный вариант гаснет, чтобы его не нажимали снова.
+                    button.isEnabled = false
+                    button.alpha = 0.35f
+                    button.background = keyBackground(color(R.color.rest_error))
+                    onWrong(timeUp = false)
+                }
+            }
+        }
+    }
+
     companion object {
+        const val GUESS_PHRASE = "Не пытайся угадать, подумай. Последняя попытка."
+
         /** Сколько показывать «Молодец!» с довольным котиком. */
         private const val SUCCESS_SHOW_MS = 3000L
 

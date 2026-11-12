@@ -18,8 +18,9 @@ object TaskGenerator {
     const val CAT_STEPS = "steps"       // действия в два шага
     const val CAT_COMPARE = "compare"   // сравнение величин м, дм, см
     const val CAT_PROBLEMS = "problems" // текстовые задачи
+    const val CAT_NOTES = "notes"       // ноты в скрипичном и басовом ключе
 
-    val ALL = listOf(CAT_PLAIN, CAT_WORDS, CAT_EXTRA, CAT_ADDSUB, CAT_STEPS, CAT_COMPARE, CAT_PROBLEMS)
+    val ALL = listOf(CAT_PLAIN, CAT_WORDS, CAT_EXTRA, CAT_ADDSUB, CAT_STEPS, CAT_COMPARE, CAT_PROBLEMS, CAT_NOTES)
 
     const val EASY = 1
     const val MEDIUM = 2
@@ -50,15 +51,93 @@ object TaskGenerator {
 
     fun one(category: String, level: Int = MEDIUM): Task {
         val lv = level.coerceIn(EASY, HARD)
-        return when (category) {
+        val cat = if (category in ALL) category else CAT_PLAIN
+        val task = when (cat) {
             CAT_WORDS -> words(lv)
             CAT_EXTRA -> extra(lv)
             CAT_ADDSUB -> addSub(lv)
             CAT_STEPS -> steps(lv)
             CAT_COMPARE -> compare(lv)
             CAT_PROBLEMS -> problems(lv)
+            CAT_NOTES -> notes(lv)
             else -> plain(lv)
         }
+        return task.copy(cat = cat, level = lv)
+    }
+
+    /** Другое задание того же вида и сложности — для защиты от угадывания перебором. */
+    fun replacement(old: Task): Task {
+        val cat = old.cat.ifEmpty { CAT_PLAIN }
+        repeat(30) {
+            val t = one(cat, old.level)
+            if (t.text != old.text || t.answer != old.answer || t.pos != old.pos || t.clef != old.clef) return t
+        }
+        return one(cat, old.level)
+    }
+
+    // ---------- Ноты ----------
+
+    private val NOTE_NAMES = listOf("до", "ре", "ми", "фа", "соль", "ля", "си")
+    private val OCTAVES = mapOf(2 to "большой октавы", 3 to "малой октавы", 4 to "первой октавы", 5 to "второй октавы")
+
+    /** Нижняя линейка: ми первой октавы в скрипичном ключе, соль большой — в басовом. */
+    private const val TREBLE_BOTTOM = 4 * 7 + 2
+    private const val BASS_BOTTOM = 2 * 7 + 4
+    private const val LOWEST = 2 * 7      // до большой октавы
+    private const val HIGHEST = 5 * 7 + 6 // си второй октавы
+
+    /** d — номер ступени: октава × 7 + нота (до = 0 … си = 6). */
+    fun noteLabel(d: Int, withOctave: Boolean): String =
+        NOTE_NAMES[d % 7] + if (withOctave) "\n" + OCTAVES[d / 7] else ""
+
+    private fun notes(level: Int): Task {
+        val treble = Random.nextBoolean()
+        val (lo, hi) = when (level) {
+            EASY -> 0 to 8                       // только на линейках и между ними
+            MEDIUM -> -2 to 10                   // плюс одна добавочная линейка
+            else -> if (treble) -2 to 11 else -4 to 10 // до двух добавочных линеек
+        }
+        val pos = r(lo, hi)
+        val d = (if (treble) TREBLE_BOTTOM else BASS_BOTTOM) + pos
+        val withOctave = level != EASY
+        val correct = noteLabel(d, withOctave)
+
+        val options = mutableListOf(correct)
+        if (!withOctave) {
+            NOTE_NAMES.filter { it != correct }.shuffled().take(3).forEach { options.add(it) }
+        } else {
+            val candidates = mutableListOf<Int>()
+            if (level == HARD) {
+                // та же нота в другой октаве — нужно смотреть на ключ и линейки
+                listOf(d - 7, d + 7).filter { it in LOWEST..HIGHEST }.shuffled().firstOrNull()?.let { candidates.add(it) }
+                listOf(d - 1, d + 1, d - 2, d + 2).shuffled().forEach { candidates.add(it) }
+            } else {
+                listOf(d - 1, d + 1, d - 2, d + 2, d - 3, d + 3).shuffled().forEach { candidates.add(it) }
+            }
+            for (c in candidates) {
+                if (options.size == 4) break
+                if (c !in LOWEST..HIGHEST) continue
+                val label = noteLabel(c, true)
+                if (label !in options) options.add(label)
+            }
+            var extraStep = 3
+            while (options.size < 4) {
+                extraStep++
+                for (c in listOf(d + extraStep, d - extraStep)) {
+                    if (options.size < 4 && c in LOWEST..HIGHEST) {
+                        val label = noteLabel(c, true)
+                        if (label !in options) options.add(label)
+                    }
+                }
+            }
+        }
+        return Task(
+            text = "Какая это нота?",
+            answer = correct,
+            clef = if (treble) "treble" else "bass",
+            pos = pos,
+            options = options.shuffled()
+        )
     }
 
     /** Пара множителей из таблицы по уровню: лёгкий 2–5, средний 2–9, сложный — хотя бы один от 6 до 9. */

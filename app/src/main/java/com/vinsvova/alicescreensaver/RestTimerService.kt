@@ -282,7 +282,7 @@ class RestTimerService : Service() {
         val q = QuizOverlay(
             context = this,
             prefs = prefs,
-            tasks = examples,
+            initialTasks = examples,
             isRetry = prefs.activeQuizIsRetry,
             answerSeconds = prefs.mathAnswerSeconds,
             onDone = { missed -> finishQuiz(missed, skippedByParent = false) },

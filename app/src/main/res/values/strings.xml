@@ -47,6 +47,7 @@
     <string name="cat_steps">Действия в два шага: «Сумму 31 и 17 раздели на 8»</string>
     <string name="cat_compare">Сравнение величин: м, дм, см (знаки &gt;, &lt;, =)</string>
     <string name="cat_problems">Текстовые задачи</string>
+    <string name="cat_notes">Ноты: скрипичный и басовый ключ, большая, малая, первая и вторая октавы</string>
     <string name="wrong_title">При неправильном ответе</string>
     <string name="wrong_vibrate">Вибрация</string>
     <string name="sound_none">Без звука</string>

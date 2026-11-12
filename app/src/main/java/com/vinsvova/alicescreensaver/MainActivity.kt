@@ -63,7 +63,8 @@ class MainActivity : AppCompatActivity() {
             TaskGenerator.CAT_ADDSUB to findViewById<CheckBox>(R.id.cat_addsub),
             TaskGenerator.CAT_STEPS to findViewById<CheckBox>(R.id.cat_steps),
             TaskGenerator.CAT_COMPARE to findViewById<CheckBox>(R.id.cat_compare),
-            TaskGenerator.CAT_PROBLEMS to findViewById<CheckBox>(R.id.cat_problems)
+            TaskGenerator.CAT_PROBLEMS to findViewById<CheckBox>(R.id.cat_problems),
+            TaskGenerator.CAT_NOTES to findViewById<CheckBox>(R.id.cat_notes)
         )
     }
 
@@ -404,9 +405,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateLevelHint() {
         levelHint.text = when (selectedLevel()) {
-            TaskGenerator.EASY -> "Таблица от 2 до 5, сложение без перехода через десяток, задачи в одно действие."
-            TaskGenerator.HARD -> "Таблица 6–9, пропущенные числа (□ × 7 = 56), переход через десяток, задачи в два действия."
-            else -> "Вся таблица от 2 до 9, переход через десяток, обычные задания из диктантов."
+            TaskGenerator.EASY -> "Таблица от 2 до 5, сложение без перехода через десяток, задачи в одно действие. Ноты только на линейках, ответ — название ноты."
+            TaskGenerator.HARD -> "Таблица 6–9, пропущенные числа (□ × 7 = 56), переход через десяток, задачи в два действия. Ноты с двумя добавочными линейками, в ответах та же нота в другой октаве."
+            else -> "Вся таблица от 2 до 9, переход через десяток, обычные задания из диктантов. Ноты с одной добавочной линейкой, ответ — нота и октава."
         }
     }
 
