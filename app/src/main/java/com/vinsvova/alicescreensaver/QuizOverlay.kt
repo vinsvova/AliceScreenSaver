@@ -81,6 +81,8 @@ class QuizOverlay(
     private lateinit var signsPad: LinearLayout
     private lateinit var optionsPad: LinearLayout
     private lateinit var staffView: StaffView
+    private lateinit var figureView: FigureView
+    private lateinit var hintView: TextView
 
     private var parentPanel: View? = null
     private var parentButton: View? = null
@@ -246,6 +248,17 @@ class QuizOverlay(
             staffView.visibility = View.GONE
             answerView.visibility = View.VISIBLE
         }
+        // Квадрат или прямоугольник с подписями сторон.
+        if (task.shape.isNotEmpty()) {
+            figureView.set(task.shape == "square", task.figTop, task.figSide, task.figIn)
+            figureView.visibility = View.VISIBLE
+        } else {
+            figureView.visibility = View.GONE
+        }
+        // Формула появляется только после ошибки.
+        hintView.visibility = View.GONE
+        hintView.text = task.hint
+
         digitsPad.visibility = if (task.sign || task.isNote) View.GONE else View.VISIBLE
         signsPad.visibility = if (task.sign && !task.isNote) View.VISIBLE else View.GONE
         optionsPad.visibility = if (task.isNote) View.VISIBLE else View.GONE
@@ -323,6 +336,7 @@ class QuizOverlay(
         shake(catView)
         val phrase = if (prefs.teacherEnabled) Teacher.nextError() else "Подумай ещё!"
         setFeedback(if (timeUp) "Время вышло! $phrase" else phrase, R.color.rest_error)
+        showHint()
         // Сначала звук (рычание, шипение…), потом замечание учительницы.
         WrongFeedback.play(context, prefs) {
             if (prefs.teacherEnabled && root != null) Teacher.say(if (timeUp) "Время вышло! $phrase" else phrase)
@@ -337,9 +351,17 @@ class QuizOverlay(
         catView.setImageResource(R.drawable.cat_sad)
         shake(catView)
         setFeedback("Не пытайся угадать, подумай!\nПоследняя попытка", R.color.rest_error)
+        // На последней попытке сразу показываем формулу, чтобы было от чего оттолкнуться.
+        showHint()
         WrongFeedback.play(context, prefs) {
             if (root != null) Teacher.say(GUESS_PHRASE)
         }
+    }
+
+    private fun showHint() {
+        if (current.hint.isEmpty()) return
+        hintView.text = "Формула:\n${current.hint}"
+        hintView.visibility = View.VISIBLE
     }
 
     private fun onTimeUp() {
@@ -423,6 +445,32 @@ class QuizOverlay(
             visibility = View.GONE
         }
         taskRow.addView(staffView, 1, LinearLayout.LayoutParams(dp(340), dp(170)).apply { topMargin = dp(8) })
+
+        figureView = FigureView(context).apply {
+            lineColor = color(R.color.rest_accent)
+            fillColor = color(R.color.rest_card)
+            textColor = staffColor
+            visibility = View.GONE
+        }
+        taskRow.addView(figureView, 2, LinearLayout.LayoutParams(dp(320), dp(150)).apply { topMargin = dp(8) })
+
+        hintView = TextView(context).apply {
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setTextColor(color(R.color.rest_accent))
+            setTypeface(typeface, Typeface.BOLD)
+            setLineSpacing(0f, 1.15f)
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(14).toFloat()
+                setColor(color(R.color.rest_card))
+                setStroke(dp(2), color(R.color.rest_accent))
+            }
+            visibility = View.GONE
+        }
+        taskRow.addView(hintView, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(12) })
     }
 
     private fun keyRow(labels: List<String>, widthDp: Int, heightDp: Int, size: Float): LinearLayout {

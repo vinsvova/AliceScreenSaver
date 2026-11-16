@@ -19,8 +19,13 @@ object TaskGenerator {
     const val CAT_COMPARE = "compare"   // сравнение величин м, дм, см
     const val CAT_PROBLEMS = "problems" // текстовые задачи
     const val CAT_NOTES = "notes"       // ноты в скрипичном и басовом ключе
+    const val CAT_GEOMETRY = "geometry" // площадь и периметр квадрата и прямоугольника
+    const val CAT_MONEY = "money"       // цена, количество, стоимость
 
-    val ALL = listOf(CAT_PLAIN, CAT_WORDS, CAT_EXTRA, CAT_ADDSUB, CAT_STEPS, CAT_COMPARE, CAT_PROBLEMS, CAT_NOTES)
+    val ALL = listOf(
+        CAT_PLAIN, CAT_WORDS, CAT_EXTRA, CAT_ADDSUB, CAT_STEPS, CAT_COMPARE, CAT_PROBLEMS,
+        CAT_GEOMETRY, CAT_MONEY, CAT_NOTES
+    )
 
     const val EASY = 1
     const val MEDIUM = 2
@@ -60,6 +65,8 @@ object TaskGenerator {
             CAT_COMPARE -> compare(lv)
             CAT_PROBLEMS -> problems(lv)
             CAT_NOTES -> notes(lv)
+            CAT_GEOMETRY -> FormulaTasks.geometry(lv)
+            CAT_MONEY -> FormulaTasks.money(lv)
             else -> plain(lv)
         }
         return task.copy(cat = cat, level = lv)

@@ -9,6 +9,8 @@ import org.json.JSONObject
  * plain — короткий пример вида «7 × 8 =», показывается крупно, поле ответа справа.
  * cat, level — вид и сложность, чтобы при защите от угадывания заменить задание похожим.
  * Для нот: clef — "treble" или "bass", pos — положение ноты на стане, options — четыре варианта ответа.
+ * hint — формула, которая показывается на экране после ошибки.
+ * Для фигур: shape — "square" или "rect", figTop / figSide — подписи сторон, figIn — подпись внутри.
  */
 data class Task(
     val text: String,
@@ -19,7 +21,12 @@ data class Task(
     val level: Int = TaskGenerator.MEDIUM,
     val clef: String = "",
     val pos: Int = 0,
-    val options: List<String> = emptyList()
+    val options: List<String> = emptyList(),
+    val hint: String = "",
+    val shape: String = "",
+    val figTop: String = "",
+    val figSide: String = "",
+    val figIn: String = ""
 ) {
     val isNote: Boolean get() = clef.isNotEmpty() && options.isNotEmpty()
 
@@ -40,6 +47,11 @@ data class Task(
         .put("cl", clef)
         .put("ps", pos)
         .put("op", JSONArray(options))
+        .put("h", hint)
+        .put("sh", shape)
+        .put("ft", figTop)
+        .put("fs", figSide)
+        .put("fi", figIn)
 
     companion object {
         fun fromJson(o: JSONObject): Task? {
@@ -51,7 +63,8 @@ data class Task(
             return Task(
                 text, answer, o.optBoolean("s"), o.optBoolean("p"),
                 o.optString("c"), o.optInt("lv", TaskGenerator.MEDIUM),
-                o.optString("cl"), o.optInt("ps"), options
+                o.optString("cl"), o.optInt("ps"), options,
+                o.optString("h"), o.optString("sh"), o.optString("ft"), o.optString("fs"), o.optString("fi")
             )
         }
 

@@ -80,6 +80,35 @@ class TaskGeneratorTest {
         assertEquals("фа\nмалой октавы", TaskGenerator.noteLabel(2 * 7 + 4 + 6, true))
     }
 
+    /** У задач на формулы всегда есть подсказка; у фигур — рисунок; подсказка не выдаёт ответ. */
+    @Test
+    fun formulaTasksHaveHints() {
+        for (level in levels) {
+            for (cat in listOf(TaskGenerator.CAT_GEOMETRY, TaskGenerator.CAT_MONEY)) {
+                repeat(3000) {
+                    val t = TaskGenerator.one(cat, level)
+                    assertTrue("нет формулы: ${t.text}", t.hint.isNotBlank())
+                    if (cat == TaskGenerator.CAT_GEOMETRY) {
+                        assertTrue(t.shape == "square" || t.shape == "rect")
+                        assertTrue(t.figTop.isNotBlank() && t.figSide.isNotBlank())
+                    }
+                }
+            }
+        }
+        // Проверяем арифметику на известных формулировках.
+        repeat(3000) {
+            val t = TaskGenerator.one(TaskGenerator.CAT_GEOMETRY, TaskGenerator.EASY)
+            val n = Regex("""\d+""").findAll(t.text).map { it.value.toInt() }.toList()
+            val expected = when {
+                t.text.startsWith("Найди площадь квадрата") -> n[0] * n[0]
+                t.text.startsWith("Найди периметр квадрата") -> n[0] * 4
+                t.text.endsWith("Найди его площадь.") -> n[0] * n[1]
+                else -> (n[0] + n[1]) * 2
+            }
+            assertEquals(t.text, expected.toString(), t.answer)
+        }
+    }
+
     @Test
     fun replacementIsDifferent() {
         for (cat in TaskGenerator.ALL) {

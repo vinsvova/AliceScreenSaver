@@ -286,6 +286,18 @@
             android:text="@string/cat_problems" />
 
         <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cat_geometry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_geometry" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/cat_money"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/cat_money" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/cat_notes"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -64,6 +64,8 @@ class MainActivity : AppCompatActivity() {
             TaskGenerator.CAT_STEPS to findViewById<CheckBox>(R.id.cat_steps),
             TaskGenerator.CAT_COMPARE to findViewById<CheckBox>(R.id.cat_compare),
             TaskGenerator.CAT_PROBLEMS to findViewById<CheckBox>(R.id.cat_problems),
+            TaskGenerator.CAT_GEOMETRY to findViewById<CheckBox>(R.id.cat_geometry),
+            TaskGenerator.CAT_MONEY to findViewById<CheckBox>(R.id.cat_money),
             TaskGenerator.CAT_NOTES to findViewById<CheckBox>(R.id.cat_notes)
         )
     }
